@@ -1,5 +1,8 @@
 # aerospiker
-This is a Aerospike client implementation for scala
+
+[![Build Status](https://travis-ci.org/tkrs/aerospiker.svg?branch=master)](https://travis-ci.org/tkrs/aerospiker)
+
+This is a Aerospike client implementation for scala.
 
 It is just a wrapper to [aerospike-java-client](https://github.com/aerospike/aerospike-client-java)
 
@@ -85,7 +88,7 @@ It is just a wrapper to [aerospike-java-client](https://github.com/aerospike/aer
 * More support operation
 
 * Test
-
+			
 * Document
 
 * Benchmark
