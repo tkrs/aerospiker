@@ -21,7 +21,6 @@ scalacOptions := Seq(
 )
 
 resolvers += Resolver.sonatypeRepo("snapshots")
-resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
 lazy val scalazVersion = "7.1.2"
 
