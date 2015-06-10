@@ -1,9 +1,9 @@
 package org.aerospiker
 
-// TODO: More support!
+// TODO: More support properties!
 case class Settings(
-  host: String,
-  user: String,
-  pwd: String,
-  maxRetries: Int)
+  host: String = "127.0.0.1:3000",
+  user: String = "",
+  pwd: String = "",
+  maxRetries: Int = 3)
 
