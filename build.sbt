@@ -23,17 +23,24 @@ scalacOptions := Seq(
 resolvers += Resolver.sonatypeRepo("snapshots")
 
 lazy val scalazVersion = "7.1.2"
+lazy val scalacheckVersion = "1.12.3"
+lazy val scalatestVersion = "2.2.5"
 
 lazy val scalaz = Seq(
   "org.scalaz" %% "scalaz-core" % scalazVersion,
   "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion % "test"
 )
 
+lazy val test = Seq(
+  "org.scalatest" %% "scalatest" % scalatestVersion,
+  "org.scalacheck" %% "scalacheck" % scalacheckVersion
+) map (_ % "test")
+
 lazy val others = Seq(
   "com.aerospike" % "aerospike-client" % "3.1.2"
 )
 
-lazy val deps = (scalaz ++ others) map (_.withSources())
+lazy val deps = (scalaz ++ others ++ test) map (_.withSources())
 
 libraryDependencies ++= deps
 
