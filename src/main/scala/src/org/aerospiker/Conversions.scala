@@ -46,9 +46,7 @@ object Conversions {
         case null => new AsValue.NullValue()
         case v => new AsValue.BlobValue(v)
       }
-      println(x.value.value)
       val b = new AsBin(x.name, toAsValue(x.value.value))
-      println(b)
       b
     }
   }
