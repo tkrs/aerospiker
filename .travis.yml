@@ -4,6 +4,6 @@ sudo: false
 scala:
    - 2.11.6
 script:
-   - sbt ++$TRAVIS_SCALA_VERSION clean scoverage test
+   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test
 after_success:
    - bash <(curl -s https://codecov.io/bash)
