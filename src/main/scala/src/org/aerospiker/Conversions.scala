@@ -9,6 +9,7 @@ import java.util.{ Map => JMap, List => JList }
 import java.lang.{ Integer => JInteger, Long => JLong, Double => JDouble, Float => JFloat, Boolean => JBool }
 
 object Conversions {
+
   implicit class XAsRecord(x: AsRecord) {
     def trans: Record = {
       def convert(v: Any): Any = v match {

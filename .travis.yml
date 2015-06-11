@@ -3,6 +3,7 @@ jdk: oraclejdk8
 sudo: false
 scala:
    - 2.11.6
-script: sbt ++$TRAVIS_SCALA_VERSION test
+script:
+   - sbt ++$TRAVIS_SCALA_VERSION clean scoverage test
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+   - bash <(curl -s https://codecov.io/bash)
