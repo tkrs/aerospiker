@@ -1,5 +1,7 @@
 name := "aerospiker"
 
+organization := "com.github.tkrs"
+
 version := "0.1.0-SNAPSHOT"
 
 scalaVersion := "2.11.6"
