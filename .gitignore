@@ -16,3 +16,9 @@ project/plugins/project/
 .scala_dependencies
 .worksheet
 .tags
+
+# wercker
+_builds/
+_projects/
+_steps/
+repository.tar
