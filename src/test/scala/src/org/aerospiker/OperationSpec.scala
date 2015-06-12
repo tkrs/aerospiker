@@ -44,7 +44,7 @@ class OperationSpec extends FlatSpec with Matchers {
       )
     ))
     val allData = new Bin("data", new Value(
-      List("string", true, null, (1 << 64) * 1.1, 1 << 64, 0.1234568, 10, 20L, Array(0x02))
+      List("string", true, null, 1e9, -(1L << 63), 0.1234568.toFloat, -(1 << 33), Array(0x02.toByte))
     ))
 
     {
