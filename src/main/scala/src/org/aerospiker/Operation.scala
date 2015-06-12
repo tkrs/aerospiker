@@ -1,6 +1,6 @@
 package org.aerospiker
 
-import com.aerospike.client.{ Record => AsRecord, AerospikeException }
+import com.aerospike.client.AerospikeException
 import com.aerospike.client.listener.{ RecordListener, WriteListener }
 
 import scala.concurrent._
@@ -25,11 +25,11 @@ trait Operation { self: BaseClient =>
       val asBin = rec map (_.trans) collect {
         case x => x
       }
-      self.asClient.put(
+      Some(self.asClient.put(
         null,
         asKey,
         asBin: _*
-      )
+      ))
     })
 
   def get(key: Key): EitherT[Future, Error, Record] =
@@ -43,12 +43,15 @@ trait Operation { self: BaseClient =>
       ).trans
     })
 
-  private def futuring[B, A](e: AerospikeException => B)(f: () => A): EitherT[Future, B, A] =
+  private def futuring[B, A](e: AerospikeException => B)(f: () => Option[A]): EitherT[Future, B, A] =
     EitherT(Future {
       try {
         f() match {
-          case x: A => \/.right(x)
-          case _ => \/.left(e(new AerospikeException("not found")))
+          case Some(x) => x match {
+            case xx: A => \/.right(xx)
+            case _ => \/.left(e(new AerospikeException("not found")))
+          }
+          case None => \/.left(e(new AerospikeException("respond null record")))
         }
       } catch {
         case ex: AerospikeException => \/.left(e(ex))

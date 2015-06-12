@@ -1,6 +1,6 @@
 package org.aerospiker
 
-import com.aerospike.client.{ Key => AsKey, Bin => AsBin, Value => AsValue, Record => AsRecord }
+import com.aerospike.client.{ Host => AsHost, Key => AsKey, Bin => AsBin, Value => AsValue, Record => AsRecord }
 
 import scala.collection.mutable.{ Buffer => MBuffer, Map => MMap }
 import scala.collection.JavaConversions._
@@ -10,22 +10,33 @@ import java.lang.{ Integer => JInteger, Long => JLong, Double => JDouble, Float 
 
 object Conversions {
 
+  implicit class XHost(x: Array[Host]) {
+    def trans: Array[AsHost] = x map { h => new AsHost(h.name, h.port) }
+  }
+
   implicit class XAsRecord(x: AsRecord) {
-    def trans: Record = {
+    def trans: Option[Record] = {
       def convert(v: Any): Any = v match {
+        case x: JBool => x: Boolean
         case x: JList[_] => { x: MBuffer[_] } map { convert(_) }
         case x: JMap[String, _] => { x: MMap[String, _] } mapValues { convert(_) }
         case x: JFloat => x: Float
-        case x: JBool => x: Boolean
         case x: JDouble => x: Double
         case x: JInteger => x: Int
+        case x: JLong => x: Long
         case x => x
       }
-      val bs = x.bins mapValues { convert(_) }
-      Record(
-        bins = bs.toMap,
-        generation = x.generation,
-        expiration = x.expiration)
+
+      x match {
+        case null => None
+        case a => a.bins match {
+          case null => None
+          case b => Some(Record(
+            bins = b.mapValues(convert(_)) toMap,
+            generation = x.generation,
+            expiration = x.expiration))
+        }
+      }
     }
   }
 

@@ -7,12 +7,12 @@ build:
 
   steps:
     - script:
-        name: [install git] #for codecov
+        name: install git #for codecov
         code: |
           sudo apk-install git
 
     - script:
-        name: [sbt clean coverage test]
+        name: sbt clean coverage test
         code: |
           sbt clean coverage test
 
