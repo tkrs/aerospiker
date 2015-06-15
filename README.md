@@ -1,6 +1,8 @@
 # aerospiker
 
-[![Build Status](https://travis-ci.org/tkrs/aerospiker.svg?branch=master)](https://travis-ci.org/tkrs/aerospiker)
+[![wercker status](https://app.wercker.com/status/07c0ec3bd555c18ff328f9f976f3725e/m "wercker status")](https://app.wercker.com/project/bykey/07c0ec3bd555c18ff328f9f976f3725e)
+
+[![codecov.io](http://codecov.io/github/tkrs/aerospiker/coverage.svg?branch=master)](http://codecov.io/github/tkrs/aerospiker?branch=master)
 
 This is a Aerospike client implementation for scala.
 
@@ -18,7 +20,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Main extends App {
 
   val settings = Settings(
-    host = "127.0.0.1:3000",
+    host = List("127.0.0.1", 3000),
     user = "",
     pwd = "",
     maxRetries = 3)
@@ -86,14 +88,14 @@ object Main extends App {
 
 * Map (nested)
 
-* List (nested) 
+* List (nested)
 
 ### TODO
 
 * More support operation
 
 * Test
-			
+
 * Document
 
 * Benchmark
