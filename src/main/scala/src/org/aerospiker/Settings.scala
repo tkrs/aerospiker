@@ -4,9 +4,9 @@ case class Host(
   name: String,
   port: Int)
 
-// TODO: More support properties!
+// TODO: Support more properties!
 case class Settings(
-  host: Array[Host] = Array(Host("127.0.0.1", 3000)),
+  host: Seq[Host] = List(Host("127.0.0.1", 3000)),
   user: String = "",
   pwd: String = "",
   maxRetries: Int = 3)

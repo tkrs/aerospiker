@@ -14,7 +14,7 @@ build:
     - script:
         name: sbt clean coverage test
         code: |
-          sbt clean coverage test
+          sbt clean coverage it:test
 
     - script:
         name: push report to codecov

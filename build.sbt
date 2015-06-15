@@ -6,20 +6,6 @@ version := "0.1.0-SNAPSHOT"
 
 scalaVersion := "2.11.6"
 
-// publishMavenStyle := true
-//
-// publishTo <<= version { (v: String) =>
-//   val nexus = "https://oss.sonatype.org/"
-//   if (v.trim.endsWith("SNAPSHOT"))
-//     Some("snapshots" at nexus + "content/repositories/snapshots")
-//   else
-//     Some("releases"  at nexus + "service/local/staging/deploy/maven2")
-// }
-//
-// publishArtifact in Test := false
-//
-// pomIncludeRepository := { _ => false }
-
 scalacOptions := Seq(
   "-deprecation",
   "-encoding", "UTF-8",
@@ -50,7 +36,7 @@ lazy val scalaz = Seq(
 lazy val test = Seq(
   "org.scalatest" %% "scalatest" % scalatestVersion,
   "org.scalacheck" %% "scalacheck" % scalacheckVersion
-) map (_ % "test")
+) map (_ % "it,test")
 
 lazy val others = Seq(
   "com.aerospike" % "aerospike-client" % "3.1.2"
@@ -59,6 +45,22 @@ lazy val others = Seq(
 lazy val deps = (scalaz ++ others ++ test) map (_.withSources())
 
 libraryDependencies ++= deps
+
+lazy val commonSettings = Seq(
+  scalaVersion := "2.11.6",
+  organization := "com.github.tkrs"
+)
+lazy val specs2core = "org.specs2" %% "specs2-core" % "2.4.14"
+
+lazy val root = (project in file(".")).
+  configs(IntegrationTest).
+  settings(commonSettings: _*).
+  settings(Defaults.itSettings: _*).
+  settings(
+    libraryDependencies += specs2core % "it,test"
+    // other settings here
+  )
+
 
 // --------------------------------------------------
 // Each plugins settings

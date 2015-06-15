@@ -10,8 +10,8 @@ import java.lang.{ Integer => JInteger, Long => JLong, Double => JDouble, Float 
 
 object Conversions {
 
-  implicit class XHost(x: Array[Host]) {
-    def trans: Array[AsHost] = x map { h => new AsHost(h.name, h.port) }
+  implicit class XHost(x: Seq[Host]) {
+    def trans: Seq[AsHost] = x map { h => new AsHost(h.name, h.port) }
   }
 
   implicit class XAsRecord(x: AsRecord) {
@@ -27,16 +27,15 @@ object Conversions {
         case x => x
       }
 
-      x match {
-        case null => None
-        case a => a.bins match {
-          case null => None
-          case b => Some(Record(
-            bins = b.mapValues(convert(_)) toMap,
-            generation = x.generation,
-            expiration = x.expiration))
-        }
-      }
+      for {
+        rec <- Option(x)
+        b <- Option(rec.bins)
+        r <- Some(Record(
+          bins = b.mapValues(convert(_)) toMap,
+          generation = rec.generation,
+          expiration = rec.expiration))
+      } yield r
+
     }
   }
 
