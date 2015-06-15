@@ -3,9 +3,11 @@ package org.aerospiker
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import com.aerospike.client.{ Bin => AsBin, Key => AsKey, Record => AsRecord, AerospikeClient, AerospikeException }
+import com.aerospike.client.{ Host => AsHost, Bin => AsBin, Key => AsKey, Record => AsRecord, AerospikeClient, AerospikeException }
 import com.aerospike.client.policy.ClientPolicy
 import scalaz._
+
+import Conversions._
 
 object Client {
   def apply(settings: Settings): Client = new Client(settings)
@@ -26,9 +28,7 @@ class BaseClient(settings: Settings) {
     policy.writePolicyDefault.maxRetries = settings.maxRetries
     policy.failIfNotConnected = true;
 
-    val xs = settings.host.split(":")
-
-    new AerospikeClient(policy, xs(0), xs(1).toInt)
+    new AerospikeClient(policy, settings.host.trans: _*)
   }
 
   def close(): Unit = {
