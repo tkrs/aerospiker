@@ -1,8 +1,9 @@
 # aerospiker
 
-[![wercker status](https://app.wercker.com/status/07c0ec3bd555c18ff328f9f976f3725e/m "wercker status")](https://app.wercker.com/project/bykey/07c0ec3bd555c18ff328f9f976f3725e)
-
+[![Stories in Ready](https://badge.waffle.io/tkrs/aerospiker.svg?label=ready&title=Ready)](http://waffle.io/tkrs/aerospiker)
 [![codecov.io](http://codecov.io/github/tkrs/aerospiker/coverage.svg?branch=master)](http://codecov.io/github/tkrs/aerospiker?branch=master)
+
+[![wercker status](https://app.wercker.com/status/07c0ec3bd555c18ff328f9f976f3725e/m "wercker status")](https://app.wercker.com/project/bykey/07c0ec3bd555c18ff328f9f976f3725e)
 
 This is a Aerospike client implementation for scala.
 
@@ -76,28 +77,34 @@ object Main extends App {
 
 ### Operation
 
-* get
+- get
 
-* put
+- put
 
 ### DataType
 
-* Integer
+- Basic types
 
-* String
+  - Integer
 
-* Map (nested)
+  - String
 
-* List (nested)
+- complex types
+
+  - Map (nested)
+
+  - List (nested)
 
 ### TODO
 
-* More support operation
+- More support operation (create, update, replace, delete, add, append)
 
-* Test
+- More support data types (Large data types)
 
-* Document
+- Test
 
-* Benchmark
+- Document
 
-* Erasure to warning
+- Benchmark
+
+- Erasure to warning
