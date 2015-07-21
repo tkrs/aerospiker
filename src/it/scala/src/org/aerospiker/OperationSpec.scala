@@ -20,22 +20,22 @@ class OperationSpec extends FlatSpec with Matchers {
       ("AEROSPIKE_SERVER_PORT_3002_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3002_TCP_PORT") ::
       ("AEROSPIKE_SERVER_PORT_3003_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3003_TCP_PORT") ::
       Nil
-    ).map(x => x match {
+    ) map {
       case (h, p) => (sys.env.getOrElse(h, ""), sys.env.getOrElse(p, ""))
-    }) filter (x => x match {
+    } filter {
       case (_, "") => false
       case ("", _) => false
       case _ => true
-    }) map (x => x match {
+    } map {
       case (h, p) => Host(h, p.toInt)
-    })
+    }
   }
 
   it should "put and get values" in {
 
     val policy = ClientPolicy()
 
-    val client = Client(policy, host = hosts)
+    val client = Client(policy, hosts)
     val key = new Key("test", "teste", "testee")
     val nickanme = new Bin("nickname", new Value("tkrs"))
     val attribute = new Bin(
@@ -84,7 +84,7 @@ class OperationSpec extends FlatSpec with Matchers {
   it should "Error result if unregister key & namespace & set" in {
 
     val policy = ClientPolicy()
-    val client = Client(policy, host = hosts)
+    val client = Client(policy, hosts)
 
     {
       val key = new Key("test", "teste", "not")
@@ -133,7 +133,7 @@ class OperationSpec extends FlatSpec with Matchers {
     try {
       val errHosts = Host("127.0.0.1", 9090) :: Nil
       val policy = ClientPolicy()
-      val client = Client(policy, host = errHosts)
+      val client = Client(policy, errHosts)
       fail("Unexpected connection")
     } catch {
       case _ => assert(true)
