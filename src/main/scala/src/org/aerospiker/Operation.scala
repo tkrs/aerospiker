@@ -1,7 +1,10 @@
 package org.aerospiker
 
 import com.aerospike.client.AerospikeException
-import com.aerospike.client.listener.{ RecordListener, WriteListener }
+import com.aerospike.client.policy.{
+  Policy => AsPolicy,
+  WritePolicy => AsWritePolicy
+}
 
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -17,30 +20,34 @@ class ResponseError(ex: AerospikeException) extends Error
 
 trait Operation { self: BaseClient =>
 
-  def put(key: Key, rec: Bin[_]*): EitherT[Future, Error, Unit] =
+  def put(key: Key, rec: Bin[_]*)(
+    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
+
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.trans
-      val asBin = rec map (_.trans) collect {
+      val asKey = key.toAsKey
+      val asBin = rec map (_.toAsBin) collect {
         case x => x
       }
       Some(self.asClient.put(
-        null,
+        wp,
         asKey,
         asBin: _*
       ))
     })
 
-  def get(key: Key): EitherT[Future, Error, Record] =
+  def get(key: Key)(
+    implicit rp: AsPolicy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
+
     futurize[Error, Record]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.trans
+      val asKey = key.toAsKey
       self.asClient.get(
-        null,
+        rp,
         asKey
-      ).trans
+      ).toRecordOption
     })
 
   private def futurize[B, A](e: AerospikeException => B)(f: () => Option[A]): EitherT[Future, B, A] =

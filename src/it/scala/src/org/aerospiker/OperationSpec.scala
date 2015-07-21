@@ -9,6 +9,8 @@ import scalaz._
 import org.scalatest._
 import org.scalatest.Assertions._
 
+import policy._
+
 class OperationSpec extends FlatSpec with Matchers {
 
   val hosts = {
@@ -31,9 +33,9 @@ class OperationSpec extends FlatSpec with Matchers {
 
   it should "put and get values" in {
 
-    val settings = Settings(host = hosts)
+    val policy = ClientPolicy()
 
-    val client = Client(settings)
+    val client = Client(policy, host = hosts)
     val key = new Key("test", "teste", "testee")
     val nickanme = new Bin("nickname", new Value("tkrs"))
     val attribute = new Bin(
@@ -81,8 +83,8 @@ class OperationSpec extends FlatSpec with Matchers {
 
   it should "Error result if unregister key & namespace & set" in {
 
-    val settings = Settings(host = hosts)
-    val client = Client(settings)
+    val policy = ClientPolicy()
+    val client = Client(policy, host = hosts)
 
     {
       val key = new Key("test", "teste", "not")
@@ -130,8 +132,8 @@ class OperationSpec extends FlatSpec with Matchers {
   it should "throw java.net.ConnectException if specify a incorrect host" in {
     try {
       val errHosts = Host("127.0.0.1", 9090) :: Nil
-      val settings = Settings(host = errHosts)
-      val client = Client(settings)
+      val policy = ClientPolicy()
+      val client = Client(policy, host = errHosts)
       fail("Unexpected connection")
     } catch {
       case _ => assert(true)

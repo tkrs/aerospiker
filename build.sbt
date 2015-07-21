@@ -52,7 +52,7 @@ lazy val test = Seq(
 ) map (_ % "it,test")
 
 lazy val others = Seq(
-  "com.aerospike" % "aerospike-client" % "3.1.2"
+  "com.aerospike" % "aerospike-client" % "3.1.3"
 )
 
 lazy val deps = (scalaz ++ others ++ test) map (_.withSources())
@@ -80,6 +80,4 @@ lazy val root = (project in file(".")).
 
 scalariformSettings
 
-import wartremover._
-
-wartremoverSettings
+// wartremoverErrors in (Compile, compile) ++= Warts.all
