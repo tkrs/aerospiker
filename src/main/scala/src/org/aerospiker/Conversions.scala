@@ -17,7 +17,13 @@ import com.aerospike.client.policy.{
   InfoPolicy => AsInfoPolicy
 }
 import java.util.{ Map => JMap, List => JList }
-import java.lang.{ Integer => JInteger, Long => JLong, Double => JDouble, Float => JFloat, Boolean => JBool }
+import java.lang.{
+  Integer => JInteger,
+  Long => JLong,
+  Double => JDouble,
+  Float => JFloat,
+  Boolean => JBool
+}
 
 import scala.collection.mutable.{ Buffer => MBuffer, Map => MMap }
 import scala.collection.JavaConversions._
@@ -171,20 +177,25 @@ object Conversions {
     }
   }
 
-  implicit class BinConversion(x: Bin[_]) {
-    def toAsBin: AsBin = {
-      def toAsValue(v: Any): AsValue = v match {
+  implicit class ValueToAsValue(x: Value[_]) {
+    def toAsValue: AsValue = {
+      def _toAsValue(v: Any): AsValue = v match {
         case v: Int => new AsValue.IntegerValue(v)
         case v: String => new AsValue.StringValue(v)
         case v: Array[Byte] => new AsValue.BytesValue(v)
         case v: Long => new AsValue.LongValue(v)
-        case v: List[_] => new AsValue.ListValue(v map { toAsValue(_).getObject() })
-        case v: Map[_, _] => new AsValue.MapValue(v mapValues { toAsValue(_).getObject() })
+        case v: List[_] => new AsValue.ListValue(v map { _toAsValue(_).getObject() })
+        case v: Map[_, _] => new AsValue.MapValue(v mapValues { _toAsValue(_).getObject() })
         case null => new AsValue.NullValue()
         case v => new AsValue.BlobValue(v)
       }
-      val b = new AsBin(x.name, toAsValue(x.value.value))
-      b
+      _toAsValue(x)
+    }
+  }
+
+  implicit class BinConversion(x: Bin[_]) {
+    def toAsBin: AsBin = {
+      new AsBin(x.name, x.value.value)
     }
   }
 

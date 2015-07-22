@@ -2,19 +2,19 @@ package org.aerospiker
 
 import scala.concurrent.duration._
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 
-import scalaz._
+import scalaz._, Scalaz._
+import scalaz.concurrent._
 
 import org.scalatest._
 import org.scalatest.Assertions._
 
+import Conversions._
 import policy._
 
 class OperationSpec extends FlatSpec with Matchers {
 
-  val hosts = {
-    (
+  val hosts = (
       ("AEROSPIKE_SERVER_PORT_3000_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3000_TCP_PORT") ::
       ("AEROSPIKE_SERVER_PORT_3001_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3001_TCP_PORT") ::
       ("AEROSPIKE_SERVER_PORT_3002_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3002_TCP_PORT") ::
@@ -29,56 +29,188 @@ class OperationSpec extends FlatSpec with Matchers {
     } map {
       case (h, p) => Host(h, p.toInt)
     }
-  }
 
-  it should "put and get values" in {
+  // TEST data
+  val nickanme = new Bin("nickname", new Value("tkrs"))
 
+  val attribute = new Bin(
+    "attribute", new Value(
+      Map("attr" -> List(
+        "100-1000",
+        "japan",
+        "tokyo"))))
+
+  val favorite = new Bin("favorite", new Value(
+    List(
+      Map("programming" -> List("rust", "scala", "haskell"))
+    )
+  ))
+
+  val allData = new Bin("data", new Value(
+    List("string", true, null, 1e9, (1L << 63) - 1, 0.1234568.toFloat, (1 << 33) - 1, Array(0x02.toByte))
+  ))
+
+  it should "put, get, delete, append values" in {
+
+    val key = new Key("test", "teste", "testee")
     val policy = ClientPolicy()
 
     val client = Client(policy, hosts)
-    val key = new Key("test", "teste", "testee")
-    val nickanme = new Bin("nickname", new Value("tkrs"))
-    val attribute = new Bin(
-      "attribute", new Value(
-        Map("attr" -> List(
-          "100-1000",
-          "japan",
-          "tokyo"))))
-    val favorite = new Bin("favorite", new Value(
-      List(
-        Map("programming" -> List("rust", "scala", "haskell"))
-      )
-    ))
-    val allData = new Bin("data", new Value(
-      List("string", true, null, 1e9, (1L << 63) - 1, 0.1234568.toFloat, (1 << 33) - 1, Array(0x02.toByte))
-    ))
 
     {
-      val f = client.put(key, nickanme, attribute, favorite, allData).run
-      f onSuccess {
+      // put with expiration -> get -> get(notfound)
+
+      import policy._
+      val wp = WritePolicy(expiration = 2)
+      val result = client.put(key, nickanme, attribute)(wp)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      result match {
         case \/-(_) => assert(true)
         case -\/(_) => fail()
       }
-      f onFailure {
-        case e => fail()
+
+      val r2 = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r2 match {
+        case \/-(_) => assert(true)
+        case -\/(_) => fail()
       }
-      Await.result(f, Duration(500, "millis"))
+
+      Thread.sleep(3000)
+
+      val r3 = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r3 match {
+        case \/-(_) => fail()
+        case -\/(_) => assert(true)
+      }
     }
 
     {
-      val f = client.get(key).run
-      f onSuccess {
+      // put -> touch with expiration -> get -> get(notfound)
+
+      import policy._
+      val _ = client.put(key, nickanme)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      val wp = WritePolicy(expiration = 2)
+      val r1 = client.touch(key)(wp)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r1 match {
         case \/-(_) => assert(true)
         case -\/(_) => fail()
       }
-      f onFailure {
-        case e => fail()
+
+      val r2 = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r2 match {
+        case \/-(_) => assert(true)
+        case -\/(_) => fail()
       }
-      Await.result(f, Duration(500, "millis"))
+
+      Thread.sleep(3000)
+
+      val r3 = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r3 match {
+        case \/-(_) => fail()
+        case -\/(_) => assert(true)
+      }
+    }
+
+    {
+      // put -> append -> get -> delete
+
+      val _ = client.put(key, nickanme, attribute)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      val r1 = client.append(key, favorite, allData)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r1 match {
+        case \/-(_) => assert(true)
+        case -\/(_) => fail()
+      }
+
+      val r2 = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r2 match {
+        case \/-(x) => assert(x.bins.contains("nickname") &&x.bins.contains("attribute") &&  x.bins.contains("favorite") && x.bins.contains("data"))
+        case -\/(_) => fail()
+      }
+
+      val r3 = client.delete(key)
+        .run
+        .runFor(Duration(500, "millis"))
+        r3 match {
+          case \/-(r) => assert(r)
+          case -\/(_) => fail()
+        }
+
+      val r4 = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r4 match {
+        case \/-(_) => fail()
+        case -\/(_) => assert(true)
+      }
     }
 
     client.close()
 
+  }
+
+  it should "get with async" in {
+
+    val key = new Key("test", "teste", "testee")
+    val policy = ClientPolicy()
+
+    val client = Client(policy, hosts)
+
+    {
+      client.put(key, nickanme).run.runAsync { a =>
+        println("nickname")
+      }
+      client.put(key, attribute).run.runAsync { a =>
+        println("attribute")
+      }
+      client.put(key, favorite).run.runAsync { a =>
+        println("favorite")
+      }
+      client.put(key, allData).run.runAsync { a =>
+        println("allData")
+      }
+
+      Thread.sleep(200)
+
+      val r2 = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      r2 match {
+        case \/-(x) => assert(x.bins.contains("nickname") &&x.bins.contains("attribute") &&  x.bins.contains("favorite") && x.bins.contains("data"))
+        case -\/(_) => fail()
+      }
+
+    }
   }
 
   it should "Error result if unregister key & namespace & set" in {
@@ -88,41 +220,38 @@ class OperationSpec extends FlatSpec with Matchers {
 
     {
       val key = new Key("test", "teste", "not")
-      val f = client.get(key).run
-      f onSuccess {
-        case \/-(_) => assert(false)
-        case -\/(_) => assert(true)
-      }
-      f onFailure {
-        case e => fail()
-      }
-      Await.result(f, Duration(500, "millis"))
+      val result = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+        result match {
+          case \/-(_) => assert(false)
+          case -\/(_) => assert(true)
+        }
     }
 
     {
       val key = new Key("test", "not", "not")
-      val f = client.get(key).run
-      f onSuccess {
+      val result = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      result match {
         case \/-(_) => assert(false)
         case -\/(_) => assert(true)
       }
-      f onFailure {
-        case e => fail()
-      }
-      Await.result(f, Duration(500, "millis"))
     }
 
     {
       val key = new Key("not", "not", "not")
-      val f = client.get(key).run
-      f onSuccess {
+      val result = client.get(key)
+        .run
+        .runFor(Duration(500, "millis"))
+
+      result match {
         case \/-(_) => assert(false)
         case -\/(_) => assert(true)
       }
-      f onFailure {
-        case e => fail()
-      }
-      Await.result(f, Duration(500, "millis"))
     }
 
     client.close()

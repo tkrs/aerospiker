@@ -37,12 +37,13 @@ scalacOptions := Seq(
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 
-lazy val scalazVersion = "7.1.2"
+lazy val scalazVersion = "7.1.3"
 lazy val scalacheckVersion = "1.12.3"
 lazy val scalatestVersion = "2.2.5"
 
 lazy val scalaz = Seq(
   "org.scalaz" %% "scalaz-core" % scalazVersion,
+  "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
   "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion % "test"
 )
 
