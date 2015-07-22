@@ -17,13 +17,7 @@ import com.aerospike.client.policy.{
   InfoPolicy => AsInfoPolicy
 }
 import java.util.{ Map => JMap, List => JList }
-import java.lang.{
-  Integer => JInteger,
-  Long => JLong,
-  Double => JDouble,
-  Float => JFloat,
-  Boolean => JBool
-}
+import java.lang.{ Long => JLong, Double => JDouble, Boolean => JBool }
 
 import scala.collection.mutable.{ Buffer => MBuffer, Map => MMap }
 import scala.collection.JavaConversions._
@@ -152,9 +146,7 @@ object Conversions {
         case x: JBool => x: Boolean
         case x: JList[_] => { x: MBuffer[_] } map { convert(_) }
         case x: JMap[String, _] => { x: MMap[String, _] } mapValues { convert(_) }
-        case x: JFloat => x: Float
         case x: JDouble => x: Double
-        case x: JInteger => x: Int
         case x: JLong => x: Long
         case x => x
       }
@@ -189,13 +181,13 @@ object Conversions {
         case null => new AsValue.NullValue()
         case v => new AsValue.BlobValue(v)
       }
-      _toAsValue(x)
+      _toAsValue(x.value)
     }
   }
 
   implicit class BinConversion(x: Bin[_]) {
     def toAsBin: AsBin = {
-      new AsBin(x.name, x.value.value)
+      new AsBin(x.name, x.value.toAsValue)
     }
   }
 

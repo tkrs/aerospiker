@@ -12,7 +12,7 @@ import org.scalatest.Assertions._
 import Conversions._
 import policy._
 
-class OperationSpec extends FlatSpec with Matchers {
+class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   val hosts = (
       ("AEROSPIKE_SERVER_PORT_3000_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3000_TCP_PORT") ::
@@ -30,6 +30,21 @@ class OperationSpec extends FlatSpec with Matchers {
       case (h, p) => Host(h, p.toInt)
     }
 
+  val key1 = new Key("test", "teste", "testee1")
+  val key2 = new Key("test", "teste", "testee2")
+  val key3 = new Key("test", "teste", "testee3")
+  val key4 = new Key("test", "teste", "testee4")
+  val key5 = new Key("test", "teste", "testee5")
+
+  after {
+    val keys = key1 :: key2 :: key3 :: key4 :: key5 :: Nil
+    val policy = ClientPolicy()
+    val client = Client(policy, hosts)
+    keys foreach { client.delete(_).run.start }
+    client.close()
+  }
+
+  // --------------------------------------------------
   // TEST data
   val nickanme = new Bin("nickname", new Value("tkrs"))
 
@@ -50,179 +65,245 @@ class OperationSpec extends FlatSpec with Matchers {
     List("string", true, null, 1e9, (1L << 63) - 1, 0.1234568.toFloat, (1 << 33) - 1, Array(0x02.toByte))
   ))
 
-  it should "put, get, delete, append values" in {
+  it should "acquire written record" in {
 
-    val key = new Key("test", "teste", "testee")
     val policy = ClientPolicy()
-
     val client = Client(policy, hosts)
 
     {
-      // put with expiration -> get -> get(notfound)
-
-      import policy._
-      val wp = WritePolicy(expiration = 2)
-      val result = client.put(key, nickanme, attribute)(wp)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      result match {
-        case \/-(_) => assert(true)
-        case -\/(_) => fail()
-      }
-
-      val r2 = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      r2 match {
-        case \/-(_) => assert(true)
-        case -\/(_) => fail()
-      }
-
-      Thread.sleep(3000)
-
-      val r3 = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      r3 match {
-        case \/-(_) => fail()
-        case -\/(_) => assert(true)
-      }
-    }
-
-    {
-      // put -> touch with expiration -> get -> get(notfound)
-
-      import policy._
-      val _ = client.put(key, nickanme)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      val wp = WritePolicy(expiration = 2)
-      val r1 = client.touch(key)(wp)
-        .run
-        .runFor(Duration(500, "millis"))
-
+      val r1 = client.put(key1, nickanme, attribute).run.runFor(Duration(500, "millis"))
       r1 match {
-        case \/-(_) => assert(true)
+        case \/-(x) => assert(true)
         case -\/(_) => fail()
       }
 
-      val r2 = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
-
+      val r2 = client.get(key1).run.runFor(Duration(500, "millis"))
       r2 match {
-        case \/-(_) => assert(true)
-        case -\/(_) => fail()
-      }
-
-      Thread.sleep(3000)
-
-      val r3 = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      r3 match {
-        case \/-(_) => fail()
-        case -\/(_) => assert(true)
-      }
-    }
-
-    {
-      // put -> append -> get -> delete
-
-      val _ = client.put(key, nickanme, attribute)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      val r1 = client.append(key, favorite, allData)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      r1 match {
-        case \/-(_) => assert(true)
-        case -\/(_) => fail()
-      }
-
-      val r2 = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
-
-      r2 match {
-        case \/-(x) => assert(x.bins.contains("nickname") &&x.bins.contains("attribute") &&  x.bins.contains("favorite") && x.bins.contains("data"))
-        case -\/(_) => fail()
-      }
-
-      val r3 = client.delete(key)
-        .run
-        .runFor(Duration(500, "millis"))
-        r3 match {
-          case \/-(r) => assert(r)
-          case -\/(_) => fail()
+        case \/-(x) => {
+          assert(x.bins.contains("nickname"))
+          assert(x.bins.contains("attribute"))
+          assert(x.bins.keys.size == 2)
         }
+        case -\/(_) => fail()
+      }
+    }
 
-      val r4 = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
+    {
+      val r1 = client.add(key1, favorite, allData).run.runFor(Duration(500, "millis"))
+      r1 match {
+        case \/-(x) => assert(true)
+        case -\/(_) => fail()
+      }
 
-      r4 match {
+      val r2 = client.get(key1).run.runFor(Duration(500, "millis"))
+      r2 match {
+        case \/-(x) => {
+          assert(x.bins.contains("nickname"))
+          assert(x.bins.contains("attribute"))
+          assert(x.bins.contains("favorite"))
+          assert(x.bins.contains("data"))
+          assert(x.bins.keys.size == 4)
+        }
+        case -\/(_) => fail()
+      }
+
+      val r3 = client.get(key1, "nickname", "data").run.runFor(Duration(500, "millis"))
+      r3 match {
+        case \/-(x) => {
+          assert(x.bins.contains("nickname"))
+          assert(x.bins.contains("data"))
+          assert(x.bins.keys.size == 2)
+        }
+        case -\/(_) => fail()
+      }
+    }
+
+    {
+      val bin = Bin("x", Value("1"))
+      val r1 = client.prepend(key1, favorite, bin).run.runFor(Duration(500, "millis"))
+      r1 match {
         case \/-(_) => fail()
         case -\/(_) => assert(true)
+      }
+
+      val r2 = client.prepend(key1, bin).run.runFor(Duration(500, "millis"))
+      r2 match {
+        case \/-(x) => assert(true)
+        case -\/(_) => fail()
+      }
+
+      val r3 = client.get(key1).run.runFor(Duration(500, "millis"))
+      r3 match {
+        case \/-(x) => {
+          assert(x.bins.contains("nickname"))
+          assert(x.bins.contains("attribute"))
+          assert(x.bins.contains("favorite"))
+          assert(x.bins.contains("data"))
+          assert(x.bins.contains("x"))
+          assert(x.bins.keys.size == 5)
+        }
+        case -\/(_) => fail()
+      }
+    }
+
+    {
+      val bin = Bin("y", Value("2"))
+      val r1 = client.append(key1, favorite, bin).run.runFor(Duration(500, "millis"))
+      r1 match {
+        case \/-(_) => fail()
+        case -\/(_) => assert(true)
+      }
+
+      val r2 = client.append(key1, bin).run.runFor(Duration(500, "millis"))
+      r2 match {
+        case \/-(_) => assert(true)
+        case -\/(_) => fail()
+      }
+
+      val r3 = client.get(key1).run.runFor(Duration(500, "millis"))
+      r3 match {
+        case \/-(x) => {
+          assert(x.bins.contains("nickname"))
+          assert(x.bins.contains("attribute"))
+          assert(x.bins.contains("favorite"))
+          assert(x.bins.contains("data"))
+          assert(x.bins.contains("x"))
+          assert(x.bins.contains("y"))
+          assert(x.bins.keys.size == 6)
+        }
+        case -\/(_) => fail()
+      }
+    }
+
+    {
+      val r1 = client.exists(key1).run.runFor(Duration(500, "millis"))
+      r1 match {
+        case \/-(x) => assert(x)
+        case -\/(_) => fail()
+      }
+
+      val r2 = client.delete(key1).run.runFor(Duration(500, "millis"))
+      r2 match {
+        case \/-(x) => assert(x)
+        case -\/(_) => fail()
+      }
+    }
+
+    {
+      val r1 = client.exists(key1).run.runFor(Duration(500, "millis"))
+      r1 match {
+        case \/-(x) => assert(!x)
+        case -\/(_) => fail()
+      }
+
+      val r2 = client.delete(key1).run.runFor(Duration(500, "millis"))
+      r2 match {
+        case \/-(x) => assert(!x)
+        case -\/(_) => fail()
       }
     }
 
     client.close()
-
   }
 
-  it should "get with async" in {
+  it should "remove expired record" in {
 
-    val key = new Key("test", "teste", "testee")
     val policy = ClientPolicy()
-
     val client = Client(policy, hosts)
 
     {
-      client.put(key, nickanme).run.runAsync { a =>
+      val wp1 = WritePolicy(expiration = 5)
+      client.put(key1, nickanme, attribute)(wp1).run.runFor(Duration(500, "millis"))
+      client.put(key2, favorite, allData).run.runFor(Duration(500, "millis"))
+
+      client.exists(key1).run.runFor(Duration(500, "millis")) match {
+        case \/-(x) => assert(x)
+        case -\/(_) => fail()
+      }
+      client.exists(key2).run.runFor(Duration(500, "millis")) match {
+        case \/-(x) => assert(x)
+        case -\/(_) => fail()
+      }
+
+      val wp2 = WritePolicy(expiration = 2)
+      val r1 = client.touch(key2)(wp2).run.runFor(Duration(500, "millis"))
+      r1 match {
+        case \/-(x) => assert(true)
+        case -\/(_) => fail()
+      }
+
+      Thread.sleep(3000)
+
+      client.exists(key1).run.runFor(Duration(500, "millis")) match {
+        case \/-(x) => assert(x)
+        case -\/(_) => fail()
+      }
+      client.exists(key2).run.runFor(Duration(500, "millis")) match {
+        case \/-(x) => assert(!x)
+        case -\/(_) => fail()
+      }
+
+      Thread.sleep(3000)
+
+      client.exists(key1).run.runFor(Duration(500, "millis")) match {
+        case \/-(x) => assert(!x)
+        case -\/(_) => fail()
+      }
+      client.exists(key2).run.runFor(Duration(500, "millis")) match {
+        case \/-(x) => assert(!x)
+        case -\/(_) => fail()
+      }
+
+    }
+
+    client.close()
+  }
+
+  it should "present all bins that the 'put' to the async" in {
+
+    val policy = ClientPolicy()
+    val client = Client(policy, hosts)
+
+    {
+      client.put(key3, nickanme).run.runAsync { a =>
         println("nickname")
       }
-      client.put(key, attribute).run.runAsync { a =>
+      client.put(key3, attribute).run.runAsync { a =>
         println("attribute")
       }
-      client.put(key, favorite).run.runAsync { a =>
+      client.put(key3, favorite).run.runAsync { a =>
         println("favorite")
       }
-      client.put(key, allData).run.runAsync { a =>
+      client.put(key3, allData).run.runAsync { a =>
         println("allData")
       }
 
       Thread.sleep(200)
 
-      val r2 = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
+      val r1 = client.get(key3).run.runFor(Duration(500, "millis"))
 
-      r2 match {
-        case \/-(x) => assert(x.bins.contains("nickname") &&x.bins.contains("attribute") &&  x.bins.contains("favorite") && x.bins.contains("data"))
+      r1 match {
+        case \/-(x) => {
+          assert(x.bins.contains("nickname"))
+          assert(x.bins.contains("attribute"))
+          assert(x.bins.contains("favorite"))
+          assert(x.bins.contains("data"))
+          assert(x.bins.keys.size == 4)
+        }
         case -\/(_) => fail()
       }
 
     }
   }
 
-  it should "Error result if unregister key & namespace & set" in {
+  it should "responded errror if key or namespace or set is unregistered" in {
 
     val policy = ClientPolicy()
     val client = Client(policy, hosts)
 
     {
       val key = new Key("test", "teste", "not")
-      val result = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
+      val result = client.get(key).run.runFor(Duration(500, "millis"))
 
         result match {
           case \/-(_) => assert(false)
@@ -232,9 +313,7 @@ class OperationSpec extends FlatSpec with Matchers {
 
     {
       val key = new Key("test", "not", "not")
-      val result = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
+      val result = client.get(key).run.runFor(Duration(500, "millis"))
 
       result match {
         case \/-(_) => assert(false)
@@ -244,9 +323,7 @@ class OperationSpec extends FlatSpec with Matchers {
 
     {
       val key = new Key("not", "not", "not")
-      val result = client.get(key)
-        .run
-        .runFor(Duration(500, "millis"))
+      val result = client.get(key).run.runFor(Duration(500, "millis"))
 
       result match {
         case \/-(_) => assert(false)

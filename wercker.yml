@@ -9,12 +9,12 @@ build:
     - script:
         name: install git #for codecov
         code: |
-          sudo apk-install git
+          sudo apk update && sudo apk-install git
 
     - script:
-        name: sbt clean coverage test
+        name: sbt clean coverage it:test
         code: |
-          sbt clean coverage it:test
+          sbt coverage it:test
 
     - script:
         name: push report to codecov

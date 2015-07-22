@@ -134,18 +134,18 @@ trait Operation { self: BaseClient =>
         self.asClient.get(rp, asKey, binNames: _*).toRecordOption
     })
 
-  def getHeader(key: Key)(
-    implicit rp: AsPolicy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
-
-    futurize[Error, Record]({ ex =>
-      new ResponseError(ex)
-    })({ () =>
-      val asKey = key.toAsKey
-      self.asClient.getHeader(
-        rp,
-        asKey
-      ).toRecordOption
-    })
+  // def getHeader(key: Key)(
+  //   implicit rp: AsPolicy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
+  //
+  //   futurize[Error, Record]({ ex =>
+  //     new ResponseError(ex)
+  //   })({ () =>
+  //     val asKey = key.toAsKey
+  //     self.asClient.getHeader(
+  //       rp,
+  //       asKey
+  //     ).toRecordOption
+  //   })
 
   // def register(resourcePath: String, serverPath: String)(
   //   implicit rp: AsPolicy = self.policy.readPolicyDefault,
