@@ -2,10 +2,7 @@ package org.aerospiker
 
 import com.aerospike.client.{ AerospikeException, Language, Value => AsValue }
 import com.aerospike.client.task.{ ExecuteTask, RegisterTask }
-import com.aerospike.client.policy.{
-  Policy => AsPolicy,
-  WritePolicy => AsWritePolicy
-}
+import com.aerospike.client.policy.{ Policy => AsPolicy, WritePolicy => AsWritePolicy }
 
 import scalaz._, Scalaz._
 import scalaz.concurrent._
@@ -29,11 +26,7 @@ trait Operation { self: BaseClient =>
       val asBin = rec map (_.toAsBin) collect {
         case x => x
       }
-      Some(self.asClient.put(
-        wp,
-        asKey,
-        asBin: _*
-      ))
+      self.asClient.put(wp, asKey, asBin: _*).some
     })
 
   def append(key: Key, rec: Bin[_]*)(
@@ -46,11 +39,7 @@ trait Operation { self: BaseClient =>
       val asBin = rec map (_.toAsBin) collect {
         case x => x
       }
-      Some(self.asClient.append(
-        wp,
-        asKey,
-        asBin: _*
-      ))
+      self.asClient.append(wp, asKey, asBin: _*).some
     })
 
   def prepend(key: Key, rec: Bin[_]*)(
@@ -63,11 +52,7 @@ trait Operation { self: BaseClient =>
       val asBin = rec map (_.toAsBin) collect {
         case x => x
       }
-      Some(self.asClient.prepend(
-        wp,
-        asKey,
-        asBin: _*
-      ))
+      self.asClient.prepend(wp, asKey, asBin: _*).some
     })
 
   def add(key: Key, rec: Bin[_]*)(
@@ -79,11 +64,7 @@ trait Operation { self: BaseClient =>
       val asBin = rec map (_.toAsBin) collect {
         case x => x
       }
-      Some(self.asClient.add(
-        wp,
-        asKey,
-        asBin: _*
-      ))
+      self.asClient.add(wp, asKey, asBin: _*).some
     })
 
   def touch(key: Key)(
@@ -116,10 +97,7 @@ trait Operation { self: BaseClient =>
       new ResponseError(ex)
     })({ () =>
       val asKey = key.toAsKey
-      Some(self.asClient.exists(
-        wp,
-        asKey
-      ))
+      self.asClient.exists(wp, asKey).some
     })
 
   def get(key: Key, binNames: String*)(
@@ -134,30 +112,26 @@ trait Operation { self: BaseClient =>
         self.asClient.get(rp, asKey, binNames: _*).toRecordOption
     })
 
-  // def getHeader(key: Key)(
-  //   implicit rp: AsPolicy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
-  //
-  //   futurize[Error, Record]({ ex =>
-  //     new ResponseError(ex)
-  //   })({ () =>
-  //     val asKey = key.toAsKey
-  //     self.asClient.getHeader(
-  //       rp,
-  //       asKey
-  //     ).toRecordOption
-  //   })
+  def getHeader(key: Key)(
+    implicit rp: AsPolicy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
+    futurize[Error, Record]({ ex =>
+      new ResponseError(ex)
+    })({ () =>
+      val asKey = key.toAsKey
+      self.asClient.getHeader(rp, asKey).toRecordOption
+    })
 
-  // def register(resourcePath: String, serverPath: String)(
-  //   implicit rp: AsPolicy = self.policy.readPolicyDefault,
-  //   rl: ClassLoader = getClass.getClassLoader,
-  //   lang: Language = Language.LUA): EitherT[Future, Error, RegisterTask] =
-  //
-  //   futurize[Error, RegisterTask]({ ex =>
-  //     new ResponseError(ex)
-  //   })({ () =>
-  //     self.asClient.register(rp, rl, resourcePath, serverPath, lang).some
-  //   })
-  //
+  def register(resourcePath: String, serverPath: String)(
+    implicit rp: AsPolicy = self.policy.readPolicyDefault,
+    rl: ClassLoader = getClass.getClassLoader,
+    lang: Language = Language.LUA): EitherT[Future, Error, RegisterTask] =
+
+    futurize[Error, RegisterTask]({ ex =>
+      new ResponseError(ex)
+    })({ () =>
+      self.asClient.register(rp, rl, resourcePath, serverPath, lang).some
+    })
+
   // def execute(packageName: String, funcName: String, values: Value[_]*)(
   //   implicit wp: AsPolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Object] =
   //   futurize[Error, Object]({ ex =>

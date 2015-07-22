@@ -27,7 +27,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       case ("", _) => false
       case _ => true
     } map {
-      case (h, p) => Host(h, p.toInt)
+      case (h, p) => new Host(h, p.toInt)
     }
 
   val key1 = new Key("test", "teste", "testee1")
@@ -38,7 +38,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   after {
     val keys = key1 :: key2 :: key3 :: key4 :: key5 :: Nil
-    val policy = ClientPolicy()
+    val policy = new ClientPolicy()
     val client = Client(policy, hosts)
     keys foreach { client.delete(_).run.start }
     client.close()
@@ -67,7 +67,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "acquire written record" in {
 
-    val policy = ClientPolicy()
+    val policy = new ClientPolicy()
     val client = Client(policy, hosts)
 
     {
@@ -208,11 +208,12 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "remove expired record" in {
 
-    val policy = ClientPolicy()
+    val policy = new ClientPolicy()
     val client = Client(policy, hosts)
 
     {
-      val wp1 = WritePolicy(expiration = 5)
+      val wp1 = new WritePolicy()
+      wp1.expiration = 5
       client.put(key1, nickanme, attribute)(wp1).run.runFor(Duration(500, "millis"))
       client.put(key2, favorite, allData).run.runFor(Duration(500, "millis"))
 
@@ -225,7 +226,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
         case -\/(_) => fail()
       }
 
-      val wp2 = WritePolicy(expiration = 2)
+      val wp2 = new WritePolicy()
+      wp2.expiration = 2
       val r1 = client.touch(key2)(wp2).run.runFor(Duration(500, "millis"))
       r1 match {
         case \/-(x) => assert(true)
@@ -261,7 +263,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "present all bins that the 'put' to the async" in {
 
-    val policy = ClientPolicy()
+    val policy = new ClientPolicy()
     val client = Client(policy, hosts)
 
     {
@@ -298,7 +300,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "responded errror if key or namespace or set is unregistered" in {
 
-    val policy = ClientPolicy()
+    val policy = new ClientPolicy()
     val client = Client(policy, hosts)
 
     {
@@ -337,8 +339,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "throw java.net.ConnectException if specify a incorrect host" in {
     try {
-      val errHosts = Host("127.0.0.1", 9090) :: Nil
-      val policy = ClientPolicy()
+      val errHosts = new Host("127.0.0.1", 9090) :: Nil
+      val policy = new ClientPolicy()
       val client = Client(policy, errHosts)
       fail("Unexpected connection")
     } catch {
