@@ -1,7 +1,7 @@
 package org.aerospiker
 
-import com.aerospike.client.{ AerospikeException, Language, Key => AKey, Value => AValue }
-import com.aerospike.client.task.{ ExecuteTask, RegisterTask }
+import com.aerospike.client.{ AerospikeException, Language }
+import com.aerospike.client.task.RegisterTask
 
 import scala.language.reflectiveCalls
 import scala.reflect.ClassTag
@@ -19,52 +19,36 @@ class ResponseError(ex: Throwable) extends Error
 
 trait Operation { self: BaseClient =>
 
-  def put(key: Key, rec: Bin[_]*)(
+  def put(key: Key, rec: Bin*)(
     implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      val asBin = rec map (_.toAsBin) collect {
-        case x => x
-      }
-      self.asClient.put(wp, asKey, asBin: _*).some
+      self.asClient.put(wp, key, rec: _*).some
     })
 
-  def append(key: Key, rec: Bin[_]*)(
+  def append(key: Key, rec: Bin*)(
     implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      val asBin = rec map (_.toAsBin) collect {
-        case x => x
-      }
-      self.asClient.append(wp, asKey, asBin: _*).some
+      self.asClient.append(wp, key, rec: _*).some
     })
 
-  def prepend(key: Key, rec: Bin[_]*)(
+  def prepend(key: Key, rec: Bin*)(
     implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      val asBin = rec map (_.toAsBin) collect {
-        case x => x
-      }
-      self.asClient.prepend(wp, asKey, asBin: _*).some
+      self.asClient.prepend(wp, key, rec: _*).some
     })
 
-  def add(key: Key, rec: Bin[_]*)(
+  def add(key: Key, rec: Bin*)(
     implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      val asBin = rec map (_.toAsBin) collect {
-        case x => x
-      }
-      self.asClient.add(wp, asKey, asBin: _*).some
+      self.asClient.add(wp, key, rec: _*).some
     })
 
   def touch(key: Key)(
@@ -72,11 +56,7 @@ trait Operation { self: BaseClient =>
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      Some(self.asClient.touch(
-        wp,
-        asKey
-      ))
+      self.asClient.touch(wp, key).some
     })
 
   def delete(key: Key)(
@@ -84,11 +64,7 @@ trait Operation { self: BaseClient =>
     futurize[Error, Boolean]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      Some(self.asClient.delete(
-        wp,
-        asKey
-      ))
+      self.asClient.delete(wp, key).some
     })
 
   def exists(key: Key)(
@@ -96,8 +72,7 @@ trait Operation { self: BaseClient =>
     futurize[Error, Boolean]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      self.asClient.exists(wp, asKey).some
+      self.asClient.exists(wp, key).some
     })
 
   def get(key: Key, binNames: String*)(
@@ -105,11 +80,10 @@ trait Operation { self: BaseClient =>
     futurize[Error, Record]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
       if (binNames.isEmpty)
-        self.asClient.get(rp, asKey).toRecordOption
+        self.asClient.get(rp, key).toRecordOption
       else
-        self.asClient.get(rp, asKey, binNames: _*).toRecordOption
+        self.asClient.get(rp, key, binNames: _*).toRecordOption
     })
 
   def getHeader(key: Key)(
@@ -117,8 +91,7 @@ trait Operation { self: BaseClient =>
     futurize[Error, Record]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val asKey = key.toAsKey
-      self.asClient.getHeader(rp, asKey).toRecordOption
+      self.asClient.getHeader(rp, key).toRecordOption
     })
 
   def register(resourcePath: String, serverPath: String)(
@@ -139,14 +112,13 @@ trait Operation { self: BaseClient =>
       self.asClient.removeUdf(ip, serverPath).some
     })
 
-  def execute[R](key: Key, packageName: String, funcName: String, values: Value[_]*)(
+  def execute[R](key: Key, packageName: String, funcName: String, values: Value*)(
     implicit wp: WritePolicy = self.policy.writePolicyDefault,
     tag: ClassTag[R]): EitherT[Future, Error, R] =
     futurize[Error, R]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      val xs = values map (x => x.toAsValue)
-      self.asClientW.execute(tag.runtimeClass.asInstanceOf[Class[R]], wp, key.toAsKey, packageName, funcName, xs: _*).some
+      self.asClientW.execute(tag.runtimeClass.asInstanceOf[Class[R]], wp, key, packageName, funcName, values: _*).some
     })
 
   private def futurize[B, A](e: Throwable => B)(f: () => Option[A]): EitherT[Future, B, A] =
