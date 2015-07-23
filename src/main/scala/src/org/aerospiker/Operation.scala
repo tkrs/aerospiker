@@ -3,7 +3,6 @@ package org.aerospiker
 import com.aerospike.client.{ AerospikeException, Language }
 import com.aerospike.client.task.RegisterTask
 
-import scala.language.reflectiveCalls
 import scala.reflect.ClassTag
 import scalaz._, Scalaz._
 import scalaz.concurrent._
