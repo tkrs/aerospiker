@@ -1,9 +1,7 @@
 package org.aerospiker
 
 import com.aerospike.client.AerospikeClient
-import com.aerospike.client.policy.{ ClientPolicy => AsClientPolicy }
 
-import Conversions._
 import policy._
 
 object Client {
@@ -16,8 +14,9 @@ class Client(p: ClientPolicy, hosts: Seq[Host])
 
 class BaseClient(p: ClientPolicy, hosts: Seq[Host]) {
 
-  val policy: AsClientPolicy = p
+  val policy: ClientPolicy = p
   val asClient: AerospikeClient = new AerospikeClient(policy, hosts: _*)
+  val asClientW: AerospikeClientWrapper = new AerospikeClientWrapper(asClient)
 
   def close(): Unit = {
     asClient.close()

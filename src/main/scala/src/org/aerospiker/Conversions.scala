@@ -1,6 +1,6 @@
 package org.aerospiker
 
-import com.aerospike.client.{ Host => AsHost, Key => AsKey, Bin => AsBin, Value => AsValue, Record => AsRecord }
+import com.aerospike.client.{ Key => AsKey, Bin => AsBin, Value => AsValue, Record => AsRecord }
 import java.util.{ Map => JMap, List => JList }
 import java.lang.{ Long => JLong, Double => JDouble, Boolean => JBool }
 

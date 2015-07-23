@@ -298,6 +298,39 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     }
   }
 
+  it should "called to registred UDF" in {
+    val policy = new ClientPolicy()
+    val client = Client(policy, hosts)
+
+    val both = client.register("lua/test.lua", "test.lua").run.runFor(Duration(500, "millis"))
+    both match {
+        case \/-(task) => task.waitTillComplete()
+        case -\/(_) => fail()
+    }
+
+    val r1 = client.execute[String](key3, "test", "hello_world").run.runFor(Duration(500, "millis"))
+    r1 match {
+      case \/-(msg) => assert(msg == "Hello World!!")
+      case -\/(_) => fail()
+    }
+
+    val r2 = client.removeUdf("test.lua").run.runFor(Duration(500, "millis"))
+    r2 match {
+      case \/-(_) => assert(true)
+      case -\/(_) => fail()
+    }
+
+    Thread.sleep(1000)
+
+    val r3 = client.execute[String](key3, "test", "hello_world").run.runFor(Duration(500, "millis"))
+    println(r3)
+    r3 match {
+      case \/-(_) => fail()
+      case -\/(_) => assert(true)
+    }
+
+  }
+
   it should "responded errror if key or namespace or set is unregistered" in {
 
     val policy = new ClientPolicy()
@@ -308,7 +341,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val result = client.get(key).run.runFor(Duration(500, "millis"))
 
         result match {
-          case \/-(_) => assert(false)
+          case \/-(_) => fail()
           case -\/(_) => assert(true)
         }
     }
@@ -318,7 +351,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val result = client.get(key).run.runFor(Duration(500, "millis"))
 
       result match {
-        case \/-(_) => assert(false)
+        case \/-(_) => fail()
         case -\/(_) => assert(true)
       }
     }
@@ -328,7 +361,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val result = client.get(key).run.runFor(Duration(500, "millis"))
 
       result match {
-        case \/-(_) => assert(false)
+        case \/-(_) => fail()
         case -\/(_) => assert(true)
       }
     }

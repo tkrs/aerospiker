@@ -1,24 +1,26 @@
 package org.aerospiker
 
-import com.aerospike.client.{ AerospikeException, Language, Value => AsValue }
+import com.aerospike.client.{ AerospikeException, Language, Key => AKey, Value => AValue }
 import com.aerospike.client.task.{ ExecuteTask, RegisterTask }
-import com.aerospike.client.policy.{ Policy => AsPolicy, WritePolicy => AsWritePolicy }
 
+import scala.language.reflectiveCalls
+import scala.reflect.ClassTag
 import scalaz._, Scalaz._
 import scalaz.concurrent._
 
 import Conversions._
+import policy._
 
 sealed trait Error
 
-class ClientError(ex: AerospikeException) extends Error
+class ClientError(ex: Throwable) extends Error
 
-class ResponseError(ex: AerospikeException) extends Error
+class ResponseError(ex: Throwable) extends Error
 
 trait Operation { self: BaseClient =>
 
   def put(key: Key, rec: Bin[_]*)(
-    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
+    implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -30,8 +32,7 @@ trait Operation { self: BaseClient =>
     })
 
   def append(key: Key, rec: Bin[_]*)(
-    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
-
+    implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -43,8 +44,7 @@ trait Operation { self: BaseClient =>
     })
 
   def prepend(key: Key, rec: Bin[_]*)(
-    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
-
+    implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -56,7 +56,7 @@ trait Operation { self: BaseClient =>
     })
 
   def add(key: Key, rec: Bin[_]*)(
-    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
+    implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -68,7 +68,7 @@ trait Operation { self: BaseClient =>
     })
 
   def touch(key: Key)(
-    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
+    implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Unit] =
     futurize[Error, Unit]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -80,7 +80,7 @@ trait Operation { self: BaseClient =>
     })
 
   def delete(key: Key)(
-    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Boolean] =
+    implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Boolean] =
     futurize[Error, Boolean]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -92,7 +92,7 @@ trait Operation { self: BaseClient =>
     })
 
   def exists(key: Key)(
-    implicit wp: AsWritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Boolean] =
+    implicit wp: WritePolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Boolean] =
     futurize[Error, Boolean]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -101,7 +101,7 @@ trait Operation { self: BaseClient =>
     })
 
   def get(key: Key, binNames: String*)(
-    implicit rp: AsPolicy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
+    implicit rp: Policy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
     futurize[Error, Record]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -113,7 +113,7 @@ trait Operation { self: BaseClient =>
     })
 
   def getHeader(key: Key)(
-    implicit rp: AsPolicy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
+    implicit rp: Policy = self.policy.readPolicyDefault): EitherT[Future, Error, Record] =
     futurize[Error, Record]({ ex =>
       new ResponseError(ex)
     })({ () =>
@@ -122,28 +122,34 @@ trait Operation { self: BaseClient =>
     })
 
   def register(resourcePath: String, serverPath: String)(
-    implicit rp: AsPolicy = self.policy.readPolicyDefault,
-    rl: ClassLoader = getClass.getClassLoader,
+    implicit rp: Policy = self.policy.readPolicyDefault,
+    cl: ClassLoader = getClass.getClassLoader,
     lang: Language = Language.LUA): EitherT[Future, Error, RegisterTask] =
-
     futurize[Error, RegisterTask]({ ex =>
       new ResponseError(ex)
     })({ () =>
-      self.asClient.register(rp, rl, resourcePath, serverPath, lang).some
+      self.asClient.register(rp, cl, resourcePath, serverPath, lang).some
     })
 
-  // def execute(packageName: String, funcName: String, values: Value[_]*)(
-  //   implicit wp: AsPolicy = self.policy.writePolicyDefault): EitherT[Future, Error, Object] =
-  //   futurize[Error, Object]({ ex =>
-  //     new ResponseError(ex)
-  //   })({ () =>
-  //     val xs = values map {
-  //       x => x.toAsValue
-  //     }
-  //     self.asClient.execute(wp, packageName, funcName, xs).some
-  //   })
+  def removeUdf(serverPath: String)(
+    implicit ip: InfoPolicy = self.policy.infoPolicyDefault): EitherT[Future, Error, Unit] =
+    futurize[Error, Unit]({ ex =>
+      new ResponseError(ex)
+    })({ () =>
+      self.asClient.removeUdf(ip, serverPath).some
+    })
 
-  private def futurize[B, A](e: AerospikeException => B)(f: () => Option[A]): EitherT[Future, B, A] =
+  def execute[R](key: Key, packageName: String, funcName: String, values: Value[_]*)(
+    implicit wp: WritePolicy = self.policy.writePolicyDefault,
+    tag: ClassTag[R]): EitherT[Future, Error, R] =
+    futurize[Error, R]({ ex =>
+      new ResponseError(ex)
+    })({ () =>
+      val xs = values map (x => x.toAsValue)
+      self.asClientW.execute(tag.runtimeClass.asInstanceOf[Class[R]], wp, key.toAsKey, packageName, funcName, xs: _*).some
+    })
+
+  private def futurize[B, A](e: Throwable => B)(f: () => Option[A]): EitherT[Future, B, A] =
     EitherT(Future {
       try {
         f() match {
@@ -151,7 +157,7 @@ trait Operation { self: BaseClient =>
           case None => e(new AerospikeException("null record responded")).left
         }
       } catch {
-        case ex: AerospikeException => e(ex).left
+        case ex => e(ex).left
       }
     })
 
