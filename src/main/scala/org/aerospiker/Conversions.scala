@@ -6,7 +6,6 @@ import java.lang.{ Long => JLong, Double => JDouble, Boolean => JBool }
 
 import scala.collection.mutable.{ Buffer => MBuffer, Map => MMap }
 import scala.collection.JavaConversions._
-import policy._
 
 object Conversions {
 
@@ -33,16 +32,16 @@ object Conversions {
     }
   }
 
-  implicit def seqToValue(v: Boolean) = _toValue(v)
-  implicit def seqToValue(v: Int) = _toValue(v)
-  implicit def seqToValue(v: Long) = _toValue(v)
-  implicit def seqToValue(v: Float) = _toValue(v)
-  implicit def seqToValue(v: Double) = _toValue(v)
-  implicit def seqToValue(v: String) = _toValue(v)
-  implicit def seqToValue(v: List[_]) = _toValue(v)
-  implicit def seqToValue(v: Array[Byte]) = _toValue(v)
-  implicit def seqToValue(v: Map[_, _]) = _toValue(v)
-  implicit def seqToValue(v: Empty) = _toValue(v)
+  implicit def seqToValue(v: Boolean): Value = _toValue(v)
+  implicit def seqToValue(v: Int): Value = _toValue(v)
+  implicit def seqToValue(v: Long): Value = _toValue(v)
+  implicit def seqToValue(v: Float): Value = _toValue(v)
+  implicit def seqToValue(v: Double): Value = _toValue(v)
+  implicit def seqToValue(v: String): Value = _toValue(v)
+  implicit def seqToValue(v: List[_]): Value = _toValue(v)
+  implicit def seqToValue(v: Array[Byte]): Value = _toValue(v)
+  implicit def seqToValue(v: Map[_, _]): Value = _toValue(v)
+  implicit def seqToValue(v: Empty): Value = _toValue(v)
 
   private[this] def _toValue(v: Any): Value = v match {
     case v: Boolean => new Value.BooleanValue(v)

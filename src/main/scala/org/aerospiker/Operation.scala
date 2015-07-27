@@ -120,15 +120,15 @@ trait Operation { self: BaseClient =>
       self.asClientW.execute(tag.runtimeClass.asInstanceOf[Class[R]], wp, key, packageName, funcName, values: _*).some
     })
 
-  private def futurize[B, A](e: Throwable => B)(f: () => Option[A]): EitherT[Future, B, A] =
-    EitherT(Future {
+  private def futurize[B, A](e: Throwable => B)(f: () => Option[A]) =
+    EitherT[Future, B, A](Future {
       try {
         f() match {
           case Some(x) => x.right
           case None => e(new AerospikeException("null record responded")).left
         }
       } catch {
-        case ex => e(ex).left
+        case ex: Throwable => e(ex).left
       }
     })
 
