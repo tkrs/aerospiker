@@ -1,16 +1,10 @@
 package org.aerospiker
 
-import scala.concurrent.duration._
-import scala.concurrent.Await
-
-import scalaz._, Scalaz._
-import scalaz.concurrent._
-
-import org.scalatest._
-import org.scalatest.Assertions._
-
 import Conversions._
+import org.scalatest._
 import policy._
+import scalaz._
+import scalaz.concurrent._
 
 class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
@@ -36,20 +30,19 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   val key4 = Key("test", "teste", "testee4")
   val key5 = Key("test", "teste", "testee5")
 
-  def initialyze() = {
+  def initialize() = {
     val keys = key1 :: key2 :: key3 :: key4 :: key5 :: Nil
-    val policy = ClientPolicy()
-    val client = Client(policy, hosts)
-    keys foreach { client.delete(_).run.start }
+    val client = Client(hosts)
+    keys foreach { client.delete(_).run.run }
     client.close()
   }
 
   before {
-    initialyze()
+    initialize()
   }
 
   after {
-    initialyze()
+    initialize()
   }
 
   // --------------------------------------------------
@@ -70,17 +63,17 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "acquire written record" in {
 
-    val policy = ClientPolicy()
-    val client = Client(policy, hosts)
+    implicit val fp = DefaultPolicy(() => ClientPolicy())
+    val client = Client(hosts)
 
     {
-      val r1 = client.put(key1, stringBin, mapBin).run.runFor(Duration(500, "millis"))
+      val r1 = client.put(key1, stringBin, mapBin).run.run
       r1 match {
         case \/-(x) => assert(true)
         case -\/(_) => fail()
       }
 
-      val r2 = client.get(key1).run.runFor(Duration(500, "millis"))
+      val r2 = client.get(key1).run.run
       r2 match {
         case \/-(x) => {
           assert(x.bins.contains("string"))
@@ -92,13 +85,13 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
     {
-      val r1 = client.add(key1, stringWBin, listBin, boolBin, intBin, longBin, floatBin, doubleBin, bArrayBin, listInAllTypeBin).run.runFor(Duration(500, "millis"))
+      val r1 = client.add(key1, stringWBin, listBin, boolBin, intBin, longBin, floatBin, doubleBin, bArrayBin, listInAllTypeBin).run.run
       r1 match {
         case \/-(x) => assert(true)
         case -\/(_) => fail()
       }
 
-      val r2 = client.get(key1).run.runFor(Duration(500, "millis"))
+      val r2 = client.get(key1).run.run
       r2 match {
         case \/-(x) => {
           assert(x.bins.contains("string"))
@@ -118,7 +111,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
         case -\/(_) => fail()
       }
 
-      val r3 = client.get(key1, "string", "bool").run.runFor(Duration(500, "millis"))
+      val r3 = client.get(key1, "string", "bool").run.run
       r3 match {
         case \/-(x) => {
           assert(x.bins.contains("string"))
@@ -141,9 +134,9 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
     {
       val stringWBin2 = Bin("stringW", "桃")
-      client.prepend(key1, stringWBin2).run.runFor(Duration(500, "millis"))
+      client.prepend(key1, stringWBin2).run.run
 
-      val r2 = client.get(key1).run.runFor(Duration(500, "millis"))
+      val r2 = client.get(key1).run.run
       r2 match {
         case \/-(x) => {
           assert(x.bins.get("stringW").getOrElse("") == "桃白白")
@@ -154,8 +147,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
     {
       val stringWBin2 = Bin("stringW", "さま")
-      client.append(key1, stringWBin2).run.runFor(Duration(500, "millis"))
-      val r1 = client.get(key1).run.runFor(Duration(500, "millis"))
+      client.append(key1, stringWBin2).run.run
+      val r1 = client.get(key1).run.run
       r1 match {
         case \/-(x) => {
           assert(x.bins.get("stringW").getOrElse("") == "桃白白さま")
@@ -165,13 +158,13 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
     {
-      val r1 = client.exists(key1).run.runFor(Duration(500, "millis"))
+      val r1 = client.exists(key1).run.run
       r1 match {
         case \/-(x) => assert(x)
         case -\/(_) => fail()
       }
 
-      val r2 = client.delete(key1).run.runFor(Duration(500, "millis"))
+      val r2 = client.delete(key1).run.run
       r2 match {
         case \/-(x) => assert(x)
         case -\/(_) => fail()
@@ -179,13 +172,13 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
     {
-      val r1 = client.exists(key1).run.runFor(Duration(500, "millis"))
+      val r1 = client.exists(key1).run.run
       r1 match {
         case \/-(x) => assert(!x)
         case -\/(_) => fail()
       }
 
-      val r2 = client.delete(key1).run.runFor(Duration(500, "millis"))
+      val r2 = client.delete(key1).run.run
       r2 match {
         case \/-(x) => assert(!x)
         case -\/(_) => fail()
@@ -197,21 +190,20 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "be removed if explicitly null has been set" in {
 
-    val policy = ClientPolicy()
-    val client = Client(policy, hosts)
+    val client = Client(hosts)
 
     {
-      client.put(key1, stringBin, dummyBin).run.runFor(Duration(500, "millis"))
+      client.put(key1, stringBin, dummyBin).run.run
 
-      val r1 = client.exists(key1).run.runFor(Duration(500, "millis"))
+      val r1 = client.exists(key1).run.run
       r1 match {
         case \/-(x) => assert(x)
         case -\/(_) => fail()
       }
 
-      client.put(key1, emptyBin).run.runFor(Duration(500, "millis"))
+      client.put(key1, emptyBin).run.run
 
-      val r2 = client.get(key1).run.runFor(Duration(500, "millis"))
+      val r2 = client.get(key1).run.run
       r2 match {
         case \/-(x) => {
           assert(x.bins.contains("string"))
@@ -224,25 +216,27 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "remove expired record" in {
 
-    val policy = ClientPolicy()
-    val client = Client(policy, hosts)
+    val client = Client(hosts)
 
     {
-      val wp1 = WritePolicy(expiration = 5)
-      client.put(key1, stringBin, boolBin)(wp1).run.runFor(Duration(500, "millis"))
-      client.put(key2, listBin).run.runFor(Duration(500, "millis"))
+      implicit val df = DefaultPolicy(()=>ClientPolicy(writePolicyDefault = WritePolicy(expiration = 5)))
+      client.put(key1, stringBin, boolBin).run.run
+      client.put(key2, listBin).run.run
 
-      client.exists(key1).run.runFor(Duration(500, "millis")) match {
+      client.exists(key1).run.run match {
         case \/-(x) => assert(x)
         case -\/(_) => fail()
       }
-      client.exists(key2).run.runFor(Duration(500, "millis")) match {
+      client.exists(key2).run.run match {
         case \/-(x) => assert(x)
         case -\/(_) => fail()
       }
 
-      val wp2 = WritePolicy(expiration = 2)
-      val r1 = client.touch(key2)(wp2).run.runFor(Duration(500, "millis"))
+    }
+
+    {
+      implicit val df = DefaultPolicy(()=>ClientPolicy(writePolicyDefault = WritePolicy(expiration = 2)))
+      val r1 = client.touch(key2).run.run
       r1 match {
         case \/-(x) => assert(true)
         case -\/(_) => fail()
@@ -250,22 +244,22 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
       Thread.sleep(3000)
 
-      client.exists(key1).run.runFor(Duration(500, "millis")) match {
+      client.exists(key1).run.run match {
         case \/-(x) => assert(x)
         case -\/(_) => fail()
       }
-      client.exists(key2).run.runFor(Duration(500, "millis")) match {
+      client.exists(key2).run.run match {
         case \/-(x) => assert(!x)
         case -\/(_) => fail()
       }
 
       Thread.sleep(3000)
 
-      client.exists(key1).run.runFor(Duration(500, "millis")) match {
+      client.exists(key1).run.run match {
         case \/-(x) => assert(!x)
         case -\/(_) => fail()
       }
-      client.exists(key2).run.runFor(Duration(500, "millis")) match {
+      client.exists(key2).run.run match {
         case \/-(x) => assert(!x)
         case -\/(_) => fail()
       }
@@ -277,18 +271,15 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "present all bins that the 'put' to the async" in {
 
-    val policy = ClientPolicy()
-    val client = Client(policy, hosts)
+    val client = Client(hosts)
+
 
     {
       val bins = stringBin::mapBin::listBin::boolBin::intBin::longBin::floatBin::stringWBin::bArrayBin::listInAllTypeBin::Nil
-      bins foreach {
-        client.put(key3, _).run.runAsync { a => () }
-      }
+      val runs = bins map (client.put(key3, _).run)
+      Future.gatherUnordered(runs).run
 
-      Thread.sleep(500)
-
-      val r1 = client.get(key3).run.runFor(Duration(500, "millis"))
+      val r1 = client.get(key3).run.run
 
       r1 match {
         case \/-(x) => {
@@ -301,22 +292,21 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   it should "called to registred UDF" in {
-    val policy = ClientPolicy()
-    val client = Client(policy, hosts)
+    val client = Client(hosts)
 
-    val both = client.register("lua/test.lua", "test.lua").run.runFor(Duration(500, "millis"))
+    val both = client.register("lua/test.lua", "test.lua").run.run
     both match {
         case \/-(task) => task.waitTillComplete()
         case -\/(_) => fail()
     }
 
-    val r1 = client.execute[String](key3, "test", "hello_world").run.runFor(Duration(500, "millis"))
+    val r1 = client.execute[String](key3, "test", "hello_world").run.run
     r1 match {
       case \/-(msg) => assert(msg == "Hello World!!")
       case -\/(_) => fail()
     }
 
-    val r2 = client.removeUdf("test.lua").run.runFor(Duration(500, "millis"))
+    val r2 = client.removeUdf("test.lua").run.run
     r2 match {
       case \/-(_) => assert(true)
       case -\/(_) => fail()
@@ -324,7 +314,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
     Thread.sleep(1000)
 
-    val r3 = client.execute[String](key3, "test", "hello_world").run.runFor(Duration(500, "millis"))
+    val r3 = client.execute[String](key3, "test", "hello_world").run.run
     r3 match {
       case \/-(_) => fail()
       case -\/(_) => assert(true)
@@ -334,12 +324,11 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "responded errror if key or namespace or set is unregistered" in {
 
-    val policy = ClientPolicy()
-    val client = Client(policy, hosts)
+    val client = Client(hosts)
 
     {
       val key = Key("test", "teste", "not")
-      val result = client.get(key).run.runFor(Duration(500, "millis"))
+      val result = client.get(key).run.run
 
         result match {
           case \/-(_) => fail()
@@ -349,7 +338,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
     {
       val key = Key("test", "not", "not")
-      val result = client.get(key).run.runFor(Duration(500, "millis"))
+      val result = client.get(key).run.run
 
       result match {
         case \/-(_) => fail()
@@ -359,7 +348,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
     {
       val key = Key("not", "not", "not")
-      val result = client.get(key).run.runFor(Duration(500, "millis"))
+      val result = client.get(key).run.run
 
       result match {
         case \/-(_) => fail()
@@ -374,8 +363,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   it should "throw java.net.ConnectException if specify a incorrect host" in {
     try {
       val errHosts = Host("127.0.0.1", 9090) :: Nil
-      val policy = ClientPolicy()
-      val client = Client(policy, errHosts)
+      Client(errHosts)
       fail("Unexpected connection")
     } catch {
       case _: Throwable=> assert(true)

@@ -4,7 +4,7 @@ organization := "com.github.tkrs"
 
 version := "0.1.0-SNAPSHOT"
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 publishMavenStyle := true
 
 publishTo <<= version { (v: String) =>
@@ -61,7 +61,7 @@ lazy val deps = (scalaz ++ others ++ test) map (_.withSources())
 libraryDependencies ++= deps
 
 lazy val commonSettings = Seq(
-  scalaVersion := "2.11.6",
+  scalaVersion := "2.11.7",
   organization := "com.github.tkrs"
 )
 lazy val specs2core = "org.specs2" %% "specs2-core" % "2.4.14"

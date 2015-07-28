@@ -3,6 +3,18 @@ package org.aerospiker
 import com.aerospike.client.policy.{ Priority, ConsistencyLevel, Replica, RecordExistsAction, GenerationPolicy, CommitLevel }
 
 object policy {
+
+  trait DefaultPolicy[A] {
+    def apply(): A
+  }
+
+  object DefaultPolicy {
+    def apply[A](f: () => A): DefaultPolicy[A] = new DefaultPolicy[A] {
+      def apply(): A = f()
+    }
+    implicit val defaultClientPolicy: DefaultPolicy[ClientPolicy] = DefaultPolicy(() => ClientPolicy())
+  }
+
   object ClientPolicy {
     def apply(
       user: String = "",
@@ -50,7 +62,7 @@ object policy {
       maxRetries: Int = 1,
       sleepBetweenRetries: Int = 500,
       sendKey: Boolean = false): Policy = {
-      val p = new Policy()
+      val p: Policy = new Policy()
       p.priority = priority
       p.consistencyLevel = consistencyLevel
       p.replica = replica
