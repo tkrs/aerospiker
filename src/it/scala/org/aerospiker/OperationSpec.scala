@@ -31,6 +31,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   val key5 = Key("test", "teste", "testee5")
 
   def initialize() = {
+    import policy.Implicits._
     val keys = key1 :: key2 :: key3 :: key4 :: key5 :: Nil
     val client = Client(hosts)
     keys foreach { client.delete(_).run.run }
@@ -63,7 +64,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "acquire written record" in {
 
-    implicit val fp = DefaultPolicy(() => ClientPolicy())
+    import policy.Implicits._
+
     val client = Client(hosts)
 
     {
@@ -190,6 +192,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "be removed if explicitly null has been set" in {
 
+    import policy.Implicits._
     val client = Client(hosts)
 
     {
@@ -216,11 +219,12 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "remove expired record" in {
 
+    import policy.Implicits._
     val client = Client(hosts)
 
     {
-      implicit val df = DefaultPolicy(()=>ClientPolicy(writePolicyDefault = WritePolicy(expiration = 5)))
-      client.put(key1, stringBin, boolBin).run.run
+      val cp = ClientPolicy(writePolicyDefault = WritePolicy(expiration = 5))
+      client.put(key1, stringBin, boolBin)(cp).run.run
       client.put(key2, listBin).run.run
 
       client.exists(key1).run.run match {
@@ -231,12 +235,11 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
         case \/-(x) => assert(x)
         case -\/(_) => fail()
       }
-
     }
 
     {
-      implicit val df = DefaultPolicy(()=>ClientPolicy(writePolicyDefault = WritePolicy(expiration = 2)))
-      val r1 = client.touch(key2).run.run
+      val cp = ClientPolicy(writePolicyDefault = WritePolicy(expiration = 2))
+      val r1 = client.touch(key2)(cp).run.run
       r1 match {
         case \/-(x) => assert(true)
         case -\/(_) => fail()
@@ -271,6 +274,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "present all bins that the 'put' to the async" in {
 
+    import policy.Implicits._
     val client = Client(hosts)
 
 
@@ -292,6 +296,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   it should "called to registred UDF" in {
+
+    import policy.Implicits._
     val client = Client(hosts)
 
     val both = client.register("lua/test.lua", "test.lua").run.run
@@ -324,6 +330,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   it should "responded errror if key or namespace or set is unregistered" in {
 
+    import policy.Implicits._
     val client = Client(hosts)
 
     {
@@ -361,6 +368,9 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   it should "throw java.net.ConnectException if specify a incorrect host" in {
+
+    import policy.Implicits._
+
     try {
       val errHosts = Host("127.0.0.1", 9090) :: Nil
       Client(errHosts)

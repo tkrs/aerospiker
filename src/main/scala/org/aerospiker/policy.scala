@@ -4,15 +4,8 @@ import com.aerospike.client.policy.{ Priority, ConsistencyLevel, Replica, Record
 
 object policy {
 
-  trait DefaultPolicy[A] {
-    def apply(): A
-  }
-
-  object DefaultPolicy {
-    def apply[A](f: () => A): DefaultPolicy[A] = new DefaultPolicy[A] {
-      def apply(): A = f()
-    }
-    implicit val defaultClientPolicy: DefaultPolicy[ClientPolicy] = DefaultPolicy(() => ClientPolicy())
+  object Implicits {
+    implicit val defaultClientPolicy: ClientPolicy = ClientPolicy()
   }
 
   object ClientPolicy {
@@ -109,7 +102,6 @@ object policy {
 
   object ScanPolicy {
     def apply(
-
       priority: Priority = Priority.DEFAULT,
       consistencyLevel: ConsistencyLevel = ConsistencyLevel.CONSISTENCY_ONE,
       replica: Replica = Replica.MASTER,
