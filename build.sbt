@@ -4,7 +4,7 @@ organization := "com.github.tkrs"
 
 version := "0.1.0-SNAPSHOT"
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 publishMavenStyle := true
 
 publishTo <<= version { (v: String) =>
@@ -37,12 +37,13 @@ scalacOptions := Seq(
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 
-lazy val scalazVersion = "7.1.2"
+lazy val scalazVersion = "7.1.3"
 lazy val scalacheckVersion = "1.12.3"
 lazy val scalatestVersion = "2.2.5"
 
 lazy val scalaz = Seq(
   "org.scalaz" %% "scalaz-core" % scalazVersion,
+  "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
   "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion % "test"
 )
 
@@ -52,7 +53,7 @@ lazy val test = Seq(
 ) map (_ % "it,test")
 
 lazy val others = Seq(
-  "com.aerospike" % "aerospike-client" % "3.1.2"
+  "com.aerospike" % "aerospike-client" % "3.1.3"
 )
 
 lazy val deps = (scalaz ++ others ++ test) map (_.withSources())
@@ -60,7 +61,7 @@ lazy val deps = (scalaz ++ others ++ test) map (_.withSources())
 libraryDependencies ++= deps
 
 lazy val commonSettings = Seq(
-  scalaVersion := "2.11.6",
+  scalaVersion := "2.11.7",
   organization := "com.github.tkrs"
 )
 lazy val specs2core = "org.specs2" %% "specs2-core" % "2.4.14"
@@ -80,6 +81,4 @@ lazy val root = (project in file(".")).
 
 scalariformSettings
 
-import wartremover._
-
-wartremoverSettings
+// wartremoverErrors in (Compile, compile) ++= Warts.all
