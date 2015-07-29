@@ -32,6 +32,7 @@ object Conversions {
     }
   }
 
+  implicit def seqToValue(v: Any): Value = _toValue(v)
   implicit def seqToValue(v: Boolean): Value = _toValue(v)
   implicit def seqToValue(v: Int): Value = _toValue(v)
   implicit def seqToValue(v: Long): Value = _toValue(v)
