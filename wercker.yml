@@ -9,7 +9,7 @@ build:
     - script:
         name: install git #for codecov
         code: |
-          sudo apk update && sudo apk-install git
+          apk update && apk-install git
 
     - script:
         name: sbt clean coverage it:test
