@@ -9,27 +9,12 @@ This is a Aerospike client implementation for scala.
 
 It is just a wrapper to [aerospike-java-client](https://github.com/aerospike/aerospike-client-java)
 
-## Test setting
+## Getting started
 
-### Requirement
-
-- boot2docker
-
-- docker
-  
-### Ready
-
-```bash
-docker run -tid --name aerospike -p 3000:3000 -p 3001:3001 -p 3002:3002 -p 3003:3003 aerospike/aerospike-server # Only first time
-# next
-docker run ${container id} # docker ps
-```
-
-### Run
-
-```bash
-sbt clean it:test
-```
+```scala
+libraryDependencies += "com.aerospike" % "aerospike-client" % "3.1.3",
+libraryDependencies += "com.github.tkrs" %% "aerospiker" % "0.1.0-SNAPSHOT"
+```  
 
 ## Support
 
