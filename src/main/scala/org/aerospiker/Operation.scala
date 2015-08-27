@@ -12,9 +12,9 @@ import policy._
 
 sealed trait Error
 
-class ClientError(ex: Throwable) extends Error
+case class ClientError(ex: Throwable) extends Error
 
-class ResponseError(ex: Throwable) extends Error
+case class ResponseError(ex: Throwable) extends Error
 
 trait Operation { self: Client =>
 
