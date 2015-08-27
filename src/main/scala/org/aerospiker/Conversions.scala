@@ -32,17 +32,7 @@ object Conversions {
     }
   }
 
-  implicit def seqToValue(v: Any): Value = _toValue(v)
-  implicit def seqToValue(v: Boolean): Value = _toValue(v)
-  implicit def seqToValue(v: Int): Value = _toValue(v)
-  implicit def seqToValue(v: Long): Value = _toValue(v)
-  implicit def seqToValue(v: Float): Value = _toValue(v)
-  implicit def seqToValue(v: Double): Value = _toValue(v)
-  implicit def seqToValue(v: String): Value = _toValue(v)
-  implicit def seqToValue(v: List[_]): Value = _toValue(v)
-  implicit def seqToValue(v: Array[Byte]): Value = _toValue(v)
-  implicit def seqToValue(v: Map[_, _]): Value = _toValue(v)
-  implicit def seqToValue(v: Empty): Value = _toValue(v)
+  implicit def anyToValue(v: Any): Value = _toValue(v)
 
   private[this] def _toValue(v: Any): Value = v match {
     case v: Boolean => new Value.BooleanValue(v)
@@ -52,9 +42,10 @@ object Conversions {
     case v: Double => new Value.DoubleValue(v)
     case v: String => new Value.StringValue(v)
     case v: Array[Byte] => new Value.BytesValue(v)
-    case v: List[_] => new Value.ListValue(v map { _toValue(_).getObject() })
+    case v: Seq[_] => new Value.ListValue(v map { _toValue(_).getObject() })
     case v: Map[_, _] => new Value.MapValue(v mapValues { _toValue(_).getObject() })
     case v: Empty => new Value.NullValue()
+    case _ => new Value.BlobValue(v)
   }
 
 }

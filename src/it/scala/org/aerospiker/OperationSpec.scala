@@ -49,8 +49,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   // --------------------------------------------------
   // TEST data
   val stringBin = Bin("string", "tkrs")
-  val mapBin = Bin("map", Map("attr" -> List("100-1000", "japan", "tokyo")))
-  val listBin = Bin("list", List(Map("programming" -> List("rust", "scala", "haskell"))))
+  val mapBin = Bin("map", Map("attr" -> Seq("100-1000", "japan", "tokyo")))
+  val seqBin = Bin("list", List(Map("programming" -> Seq("rust", "scala", "haskell"))))
   val boolBin = Bin("bool", true)
   val intBin = Bin("int", 123456789)
   val longBin = Bin("long", 18984378939077L)
@@ -87,7 +87,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
     {
-      val r1 = client.add(key1, stringWBin, listBin, boolBin, intBin, longBin, floatBin, doubleBin, bArrayBin, listInAllTypeBin).run.run
+      val r1 = client.add(key1, stringWBin, seqBin, boolBin, intBin, longBin, floatBin, doubleBin, bArrayBin, listInAllTypeBin).run.run
       r1 match {
         case \/-(x) => assert(true)
         case -\/(_) => fail()
@@ -225,7 +225,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     {
       val cp = ClientPolicy(writePolicyDefault = WritePolicy(expiration = 5))
       client.put(key1, stringBin, boolBin)(cp).run.run
-      client.put(key2, listBin).run.run
+      client.put(key2, seqBin).run.run
 
       client.exists(key1).run.run match {
         case \/-(x) => assert(x)
@@ -279,7 +279,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
 
     {
-      val bins = stringBin::mapBin::listBin::boolBin::intBin::longBin::floatBin::stringWBin::bArrayBin::listInAllTypeBin::Nil
+      val bins = stringBin::mapBin::seqBin::boolBin::intBin::longBin::floatBin::stringWBin::bArrayBin::listInAllTypeBin::Nil
       val runs = bins map (client.put(key3, _).run)
       Future.gatherUnordered(runs).run
 
