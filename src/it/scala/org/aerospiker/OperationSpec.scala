@@ -377,11 +377,10 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
       assert(r.find(_.isLeft).isEmpty)
 
-    } catch {
-      case e: Throwable=> fail(e)
+    } finally {
+      c.close()
     }
 
-    c.close()
   }
 
   it should "throw java.net.ConnectException if specify a incorrect host" in {
