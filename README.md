@@ -42,6 +42,8 @@ libraryDependencies += "com.github.tkrs" %% "aerospiker" % "0.1.0-SNAPSHOT"
 
 - getHeader
 
+- scanAll
+
 ### DataType
 
 - Basic types
