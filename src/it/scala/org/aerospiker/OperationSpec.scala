@@ -9,11 +9,7 @@ import scalaz.concurrent._
 class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   val hosts = (
-      ("AEROSPIKE_SERVER_PORT_3000_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3000_TCP_PORT") ::
-      ("AEROSPIKE_SERVER_PORT_3001_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3001_TCP_PORT") ::
-      ("AEROSPIKE_SERVER_PORT_3002_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3002_TCP_PORT") ::
-      ("AEROSPIKE_SERVER_PORT_3003_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3003_TCP_PORT") ::
-      Nil
+      ("AEROSPIKE_SERVER_PORT_3000_TCP_ADDR", "AEROSPIKE_SERVER_PORT_3000_TCP_PORT") :: Nil
     ) map {
       case (h, p) => (sys.env.getOrElse(h, ""), sys.env.getOrElse(p, ""))
     } filter {
@@ -72,7 +68,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val r1 = client.put(key1, stringBin, mapBin).run.run
       r1 match {
         case \/-(x) => assert(true)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       val r2 = client.get(key1).run.run
@@ -82,7 +78,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
           assert(x.bins.contains("map"))
           assert(x.bins.keys.size == 2)
         }
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -90,7 +86,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val r1 = client.add(key1, stringWBin, seqBin, boolBin, intBin, longBin, floatBin, doubleBin, bArrayBin, listInAllTypeBin).run.run
       r1 match {
         case \/-(x) => assert(true)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       val r2 = client.get(key1).run.run
@@ -110,7 +106,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
           assert(x.bins.contains("all"))
           assert(x.bins.keys.size == 11)
         }
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       val r3 = client.get(key1, "string", "bool").run.run
@@ -130,7 +126,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
           assert(!x.bins.contains("all"))
           assert(x.bins.keys.size == 2)
         }
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -143,7 +139,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
         case \/-(x) => {
           assert(x.bins.get("stringW").getOrElse("") == "桃白白")
         }
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -155,7 +151,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
         case \/-(x) => {
           assert(x.bins.get("stringW").getOrElse("") == "桃白白さま")
         }
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -163,13 +159,13 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val r1 = client.exists(key1).run.run
       r1 match {
         case \/-(x) => assert(x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       val r2 = client.delete(key1).run.run
       r2 match {
         case \/-(x) => assert(x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -177,13 +173,13 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val r1 = client.exists(key1).run.run
       r1 match {
         case \/-(x) => assert(!x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       val r2 = client.delete(key1).run.run
       r2 match {
         case \/-(x) => assert(!x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -201,7 +197,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val r1 = client.exists(key1).run.run
       r1 match {
         case \/-(x) => assert(x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       client.put(key1, emptyBin).run.run
@@ -212,7 +208,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
           assert(x.bins.contains("string"))
           assert(!x.bins.contains("empty"))
         }
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
   }
@@ -229,11 +225,11 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
       client.exists(key1).run.run match {
         case \/-(x) => assert(x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
       client.exists(key2).run.run match {
         case \/-(x) => assert(x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -242,29 +238,29 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val r1 = client.touch(key2)(cp).run.run
       r1 match {
         case \/-(x) => assert(true)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       Thread.sleep(3000)
 
       client.exists(key1).run.run match {
         case \/-(x) => assert(x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
       client.exists(key2).run.run match {
         case \/-(x) => assert(!x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
       Thread.sleep(3000)
 
       client.exists(key1).run.run match {
         case \/-(x) => assert(!x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
       client.exists(key2).run.run match {
         case \/-(x) => assert(!x)
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
     }
@@ -289,7 +285,7 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
         case \/-(x) => {
           assert(x.bins.keys.size == 10)
         }
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
       }
 
     }
@@ -303,27 +299,27 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val both = client.register("lua/test.lua", "test.lua").run.run
     both match {
         case \/-(task) => task.waitTillComplete()
-        case -\/(_) => fail()
+        case -\/(ResponseError(e)) => fail(e)
     }
 
     val r1 = client.execute[String](key3, "test", "hello_world").run.run
     r1 match {
       case \/-(msg) => assert(msg == "Hello World!!")
-      case -\/(_) => fail()
+      case -\/(ResponseError(e)) => fail(e)
     }
 
     val r2 = client.removeUdf("test.lua").run.run
     r2 match {
       case \/-(_) => assert(true)
-      case -\/(_) => fail()
+      case -\/(ResponseError(e)) => fail(e)
     }
 
     Thread.sleep(1000)
 
     val r3 = client.execute[String](key3, "test", "hello_world").run.run
     r3 match {
-      case \/-(_) => fail()
       case -\/(_) => assert(true)
+      case -\/(ResponseError(e)) => fail(e)
     }
 
   }
@@ -338,8 +334,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val result = client.get(key).run.run
 
         result match {
-          case \/-(_) => fail()
           case -\/(_) => assert(true)
+          case -\/(ResponseError(e)) => fail(e)
         }
     }
 
@@ -348,8 +344,8 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val result = client.get(key).run.run
 
       result match {
-        case \/-(_) => fail()
         case -\/(_) => assert(true)
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
@@ -358,13 +354,34 @@ class OperationSpec extends FlatSpec with Matchers with BeforeAndAfter {
       val result = client.get(key).run.run
 
       result match {
-        case \/-(_) => fail()
         case -\/(_) => assert(true)
+        case -\/(ResponseError(e)) => fail(e)
       }
     }
 
     client.close()
 
+  }
+
+  it should "scan all" in {
+
+    import policy.Implicits._
+
+    val c = Client(hosts)
+
+    try {
+      val f = c.scanAll("test", "teste")
+      val r = f.runFor(3000)
+
+      println(r.size)
+
+      assert(r.find(_.isLeft).isEmpty)
+
+    } catch {
+      case e: Throwable=> fail(e)
+    }
+
+    c.close()
   }
 
   it should "throw java.net.ConnectException if specify a incorrect host" in {
