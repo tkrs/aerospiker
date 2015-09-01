@@ -1,6 +1,6 @@
 package org.aerospiker
 
-import com.aerospike.client.{ AerospikeException, Language }
+import com.aerospike.client.{ ScanCallback, AerospikeException, Language, Record => ARecord }
 import com.aerospike.client.task.RegisterTask
 
 import scala.reflect.ClassTag
@@ -83,6 +83,31 @@ trait Operation { self: Client =>
     futurize[Error, R](ResponseError(_)) { () =>
       val klass = tag.runtimeClass.asInstanceOf[Class[R]]
       self.asClientW.execute(klass, cp.writePolicyDefault, key, packageName, funcName, values: _*).some
+    }
+
+  def scanAll(namespace: String, setName: String, binNames: String*)(implicit cp: ClientPolicy) =
+    Future[Seq[Error \/ (Key, Record)]] {
+      import scala.collection.mutable.ListBuffer
+      val result: ListBuffer[Error \/ (Key, Record)] = ListBuffer.empty
+      try {
+        self.asClient.scanAll(
+          cp.scanPolicyDefault,
+          namespace,
+          setName,
+          new ScanCallback {
+            def scanCallback(key: Key, record: ARecord): Unit = {
+              record.toRecordOption match {
+                case Some(v) => result += (key, v).right
+                case None => result += ResponseError(new AerospikeException("null record responded")).left
+              }
+            }
+          },
+          binNames: _*
+        )
+      } catch {
+        case e: Throwable => result += ResponseError(e).left
+      }
+      result.toSeq
     }
 
   private def futurize[B, A](e: Throwable => B)(f: () => Option[A]) =

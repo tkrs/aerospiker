@@ -1,6 +1,6 @@
 package org.aerospiker
 
-import com.aerospike.client.{ Value, Record => AsRecord }
+import com.aerospike.client.{ Value => AValue, Record => AsRecord }
 import java.util.{ Map => JMap, List => JList }
 import java.lang.{ Long => JLong, Double => JDouble, Boolean => JBool }
 
@@ -35,17 +35,17 @@ object Conversions {
   implicit def anyToValue(v: Any): Value = _toValue(v)
 
   private[this] def _toValue(v: Any): Value = v match {
-    case v: Boolean => new Value.BooleanValue(v)
-    case v: Int => new Value.IntegerValue(v)
-    case v: Long => new Value.LongValue(v)
-    case v: Float => new Value.FloatValue(v)
-    case v: Double => new Value.DoubleValue(v)
-    case v: String => new Value.StringValue(v)
-    case v: Array[Byte] => new Value.BytesValue(v)
-    case v: Seq[_] => new Value.ListValue(v map { _toValue(_).getObject() })
-    case v: Map[_, _] => new Value.MapValue(v mapValues { _toValue(_).getObject() })
-    case v: Empty => new Value.NullValue()
-    case _ => new Value.BlobValue(v)
+    case v: Boolean => new AValue.BooleanValue(v)
+    case v: Int => new AValue.IntegerValue(v)
+    case v: Long => new AValue.LongValue(v)
+    case v: Float => new AValue.FloatValue(v)
+    case v: Double => new AValue.DoubleValue(v)
+    case v: String => new AValue.StringValue(v)
+    case v: Array[Byte] => new AValue.BytesValue(v)
+    case v: Seq[_] => new AValue.ListValue(v map { _toValue(_).getObject() })
+    case v: Map[_, _] => new AValue.MapValue(v mapValues { _toValue(_).getObject() })
+    case v: Empty => new AValue.NullValue()
+    case _ => new AValue.BlobValue(v)
   }
 
 }
