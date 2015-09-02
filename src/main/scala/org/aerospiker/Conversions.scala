@@ -14,7 +14,7 @@ object Conversions {
       def convert(v: Any): Any = v match {
         case x: JBool => x: Boolean
         case x: JList[_] => ({ x: MBuffer[_] } map { convert(_) }).toList
-        case x: JMap[String, _] => { x: MMap[String, _] } mapValues { convert(_) }
+        case x: JMap[String, _] => { x: MMap[String, _] } mapValues { convert(_) } toMap
         case x: JDouble => x: Double
         case x: JLong => x: Long
         case x => x

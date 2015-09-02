@@ -1,6 +1,6 @@
 package org.aerospiker
 
-import com.aerospike.client.{ Value => AsValue }
+import com.aerospike.client.{ Value => AsValue, Record => AsRecord }
 
 import org.scalatest._
 import policy._
@@ -67,6 +67,27 @@ class ConversionsSpec extends FlatSpec with Matchers {
 
     val ll = anyToValue(l).getObject()
     ll shouldBe a[L]
+
+  }
+
+  "AsRecordConversion#toRecordOption" should "convet java to scala" in {
+
+    import Conversions._
+    val hm = new java.util.HashMap[String, Object]()
+    hm.put("1", new java.util.HashMap[String, Object]())
+    hm.put("2", new java.util.ArrayList[String]())
+
+    val rec = new AsRecord(hm, 0, 0).toRecordOption.get
+
+    rec.bins.get("1") match {
+      case Some(x) => x shouldBe a[Map[_, _]]
+      case None => fail()
+    }
+
+    rec.bins.get("2") match {
+      case Some(x) => x shouldBe a[List[_]]
+      case None => fail()
+    }
 
   }
 
