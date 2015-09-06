@@ -1,14 +1,11 @@
 package org.aerospiker
 
-import com.aerospike.client.{ ScanCallback, AerospikeException, Language, Record => ARecord }
+import com.aerospike.client.{ Key => AKey, Record => ARecord, AerospikeException, Language }
+import com.aerospike.client.listener._
 import com.aerospike.client.task.RegisterTask
 
-import scala.reflect.ClassTag
 import scalaz._, Scalaz._
-import scalaz.concurrent._
-
-import Conversions._
-import policy._
+import scalaz.concurrent.Task
 
 sealed trait Error
 
@@ -16,110 +13,171 @@ case class ResponseError(ex: Throwable) extends Error
 
 trait Operation { self: Client =>
 
-  def put(key: Key, rec: Bin*)(implicit cp: ClientPolicy): EitherT[Future, Error, Unit] =
-    futurize[Error, Unit](ResponseError(_)) { () =>
-      self.asClient.put(cp.writePolicyDefault, key, rec: _*).some
-    }
+  import Conversions._
+  import policy.ClientPolicy
 
-  def append(key: Key, rec: Bin*)(implicit cp: ClientPolicy): EitherT[Future, Error, Unit] =
-    futurize[Error, Unit](ResponseError(_)) { () =>
-      self.asClient.append(cp.writePolicyDefault, key, rec: _*).some
-    }
+  def put[A](key: Key, bins: Bin*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Unit] {
+    Task.async[Unit] { register =>
+      self.asClient.put(
+        cp.asyncWritePolicyDefault,
+        new WriteListener {
+          def onSuccess(key: AKey): Unit = { register(\/-({})) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key,
+        bins: _*)
+    } attempt
+  }
 
-  def prepend(key: Key, rec: Bin*)(implicit cp: ClientPolicy): EitherT[Future, Error, Unit] =
-    futurize[Error, Unit](ResponseError(_)) { () =>
-      self.asClient.prepend(cp.writePolicyDefault, key, rec: _*).some
-    }
+  def append[A](key: Key, bins: Bin*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Unit] {
+    Task.async[Unit] { register =>
+      self.asClient.append(
+        cp.asyncWritePolicyDefault,
+        new WriteListener {
+          def onSuccess(key: AKey): Unit = { register(\/-({})) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key,
+        bins: _*)
+    } attempt
+  }
 
-  def add(key: Key, rec: Bin*)(implicit cp: ClientPolicy): EitherT[Future, Error, Unit] =
-    futurize[Error, Unit](ResponseError(_))({ () =>
-      self.asClient.add(cp.writePolicyDefault, key, rec: _*).some
-    })
+  def prepend[A](key: Key, bins: Bin*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Unit] {
+    Task.async[Unit] { register =>
+      self.asClient.prepend(
+        cp.asyncWritePolicyDefault,
+        new WriteListener {
+          def onSuccess(key: AKey): Unit = { register(\/-({})) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key,
+        bins: _*)
+    } attempt
+  }
 
-  def touch(key: Key)(implicit cp: ClientPolicy): EitherT[Future, Error, Unit] =
-    futurize[Error, Unit](ResponseError(_))({ () =>
-      self.asClient.touch(cp.writePolicyDefault, key).some
-    })
+  def add[A](key: Key, bins: Bin*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Unit] {
+    Task.async[Unit] { register =>
+      self.asClient.add(
+        cp.asyncWritePolicyDefault,
+        new WriteListener {
+          def onSuccess(key: AKey): Unit = { register(\/-({})) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key,
+        bins: _*)
+    } attempt
+  }
 
-  def delete(key: Key)(implicit cp: ClientPolicy): EitherT[Future, Error, Boolean] =
-    futurize[Error, Boolean](ResponseError(_)) { () =>
-      self.asClient.delete(cp.writePolicyDefault, key).some
-    }
+  def touch(key: Key)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Unit] {
+    Task.async[Unit] { register =>
+      self.asClient.touch(
+        cp.asyncWritePolicyDefault,
+        new WriteListener {
+          def onSuccess(key: AKey): Unit = { register(\/-({})) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key)
+    } attempt
+  }
 
-  def exists(key: Key)(implicit cp: ClientPolicy): EitherT[Future, Error, Boolean] =
-    futurize[Error, Boolean](ResponseError(_))({ () =>
-      self.asClient.exists(cp.writePolicyDefault, key).some
-    })
+  def delete(key: Key)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Boolean] {
+    Task.async[Boolean] { register =>
+      self.asClient.delete(
+        cp.asyncWritePolicyDefault,
+        new DeleteListener {
+          def onSuccess(key: AKey, existed: Boolean): Unit = { register(\/-(existed)) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key)
+    } attempt
+  }
 
-  def get(key: Key, binNames: String*)(implicit cp: ClientPolicy): EitherT[Future, Error, Record] =
-    futurize[Error, Record](ResponseError(_))({ () =>
-      if (binNames.isEmpty)
-        self.asClient.get(cp.readPolicyDefault, key).toRecordOption
-      else
-        self.asClient.get(cp.readPolicyDefault, key, binNames: _*).toRecordOption
-    })
+  def exists(key: Key)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Boolean] {
+    Task.async[Boolean] { register =>
+      self.asClient.exists(
+        cp.asyncWritePolicyDefault,
+        new ExistsListener {
+          def onSuccess(key: AKey, exists: Boolean): Unit = { register(\/-(exists)) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key)
+    } attempt
+  }
 
-  def getHeader(key: Key)(implicit cp: ClientPolicy): EitherT[Future, Error, Record] =
-    futurize[Error, Record](ResponseError(_))({ () =>
-      self.asClient.getHeader(cp.readPolicyDefault, key).toRecordOption
-    })
+  def get[A](key: Key, binNames: String*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Seq[Option[Record]]] {
+    Task.async[Seq[Option[Record]]] { register =>
+      self.asClient.get(
+        cp.asyncBatchPolicyDefault,
+        new RecordArrayListener {
+          def onSuccess(key: Array[AKey], records: Array[ARecord]): Unit = { register(\/-(records.toSeq.map(_.toRecordOption))) }
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        Array(key),
+        binNames: _*)
+    } attempt
+  }
+
+  def getHeader[A](keys: Array[Key])(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Seq[(Key, Option[Record])]] {
+    Task.async[Seq[(Key, Option[Record])]] { register =>
+      self.asClient.getHeader(
+        cp.batchPolicyDefault,
+        new RecordArrayListener {
+          def onSuccess(keys: Array[Key], records: Array[ARecord]): Unit = register(\/-(keys.zip(records.map(_.toRecordOption)).toSeq))
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        keys)
+    } attempt
+  }
 
   def register(resourcePath: String, serverPath: String)(
-    implicit cp: ClientPolicy,
-    cl: ClassLoader = getClass.getClassLoader,
-    lang: Language = Language.LUA): EitherT[Future, Error, RegisterTask] =
-    futurize[Error, RegisterTask](ResponseError(_))({ () =>
-      self.asClient.register(cp.writePolicyDefault, cl, resourcePath, serverPath, lang).some
-    })
+    implicit cp: ClientPolicy, cl: ClassLoader = getClass.getClassLoader, lang: Language = Language.LUA) = EitherT[Task, Throwable, RegisterTask] {
+    Task[RegisterTask] {
+      self.asClient.register(cp.asyncWritePolicyDefault, cl, resourcePath, serverPath, lang)
+    } attempt
+  }
 
-  def removeUdf(serverPath: String)(implicit cp: ClientPolicy): EitherT[Future, Error, Unit] =
-    futurize[Error, Unit](ResponseError(_)) { () =>
-      self.asClient.removeUdf(cp.infoPolicyDefault, serverPath).some
-    }
+  def removeUdf(serverPath: String)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Unit] {
+    Task[Unit] {
+      self.asClient.removeUdf(cp.infoPolicyDefault, serverPath)
+    } attempt
+  }
 
-  def execute[R](key: Key, packageName: String, funcName: String, values: Value*)(
-    implicit cp: ClientPolicy,
-    tag: ClassTag[R]): EitherT[Future, Error, R] =
-    futurize[Error, R](ResponseError(_)) { () =>
-      val klass = tag.runtimeClass.asInstanceOf[Class[R]]
-      self.asClientW.execute(klass, cp.writePolicyDefault, key, packageName, funcName, values: _*).some
-    }
-
-  def scanAll(namespace: String, setName: String, binNames: String*)(implicit cp: ClientPolicy) =
-    Future[Seq[Error \/ (Key, Record)]] {
+  def scanAll[A](namespace: String, setName: String, binNames: String*)(implicit cp: ClientPolicy) =
+    Task[Seq[Throwable \/ (Key, Option[Record])]] {
       import scala.collection.mutable.ListBuffer
-      val result: ListBuffer[Error \/ (Key, Record)] = ListBuffer.empty
+      val result: ListBuffer[Throwable \/ (Key, Option[Record])] = ListBuffer.empty
       try {
         self.asClient.scanAll(
-          cp.scanPolicyDefault,
+          cp.asyncScanPolicyDefault,
+          new RecordSequenceListener {
+            def onRecord(key: Key, record: ARecord): Unit = result += (key, record.toRecordOption).right
+            def onFailure(e: AerospikeException): Unit = result += e.left
+            def onSuccess(): Unit = {}
+          },
           namespace,
           setName,
-          new ScanCallback {
-            def scanCallback(key: Key, record: ARecord): Unit = {
-              record.toRecordOption match {
-                case Some(v) => result += (key, v).right
-                case None => result += ResponseError(new AerospikeException("null record responded")).left
-              }
-            }
-          },
           binNames: _*
         )
       } catch {
-        case e: Throwable => result += ResponseError(e).left
+        case e: Throwable => result += e.left
       }
       result.toSeq
     }
 
-  private def futurize[B, A](e: Throwable => B)(f: () => Option[A]) =
-    EitherT[Future, B, A](Future {
-      try {
-        f() match {
-          case Some(x) => x.right
-          case None => e(new AerospikeException("null record responded")).left
-        }
-      } catch {
-        case ex: Throwable => e(ex).left
-      }
-    })
+  def execute[R](key: Key, packageName: String, funcName: String, values: Value*)(
+    implicit cp: ClientPolicy, decoder: ObjectDecoder[R]) = EitherT[Task, Throwable, R] {
+    Task.async[R] { register =>
+      self.asClient.execute(
+        cp.asyncWritePolicyDefault,
+        new ExecuteListener {
+          def onSuccess(keys: AKey, obj: Any): Unit = register(\/-(decoder(obj)))
+          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
+        },
+        key,
+        packageName,
+        funcName,
+        values: _*)
+    } attempt
+  }
 
 }

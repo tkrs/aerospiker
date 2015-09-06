@@ -12,9 +12,9 @@ build:
           apk-install git
 
     - script:
-        name: sbt clean coverage it:test
+        name: sbt coverage test
         code: |
-          sbt coverage it:test
+          sbt coverage test
 
     - script:
         name: push report to codecov
