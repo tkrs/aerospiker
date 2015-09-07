@@ -26,7 +26,8 @@ object Conversions {
         r <- Some(Record(
           bins = b.mapValues(convert(_)) toMap,
           generation = rec.generation,
-          expiration = rec.expiration))
+          expiration = rec.expiration
+        ))
       } yield r
 
     }
