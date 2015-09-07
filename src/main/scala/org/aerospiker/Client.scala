@@ -1,6 +1,6 @@
 package org.aerospiker
 
-import com.aerospike.client.AerospikeClient
+import com.aerospike.client.async.AsyncClient
 
 import policy._
 
@@ -10,8 +10,7 @@ object Client {
 
 class Client(hosts: Seq[Host])(policy: ClientPolicy) extends Operation {
 
-  val asClient: AerospikeClient = new AerospikeClient(policy, hosts: _*)
-  val asClientW: AerospikeClientWrapper = new AerospikeClientWrapper(asClient)
+  val asClient = new AsyncClient(policy, hosts: _*)
 
   def close() = asClient.close()
 

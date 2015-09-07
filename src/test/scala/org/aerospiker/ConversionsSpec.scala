@@ -11,7 +11,7 @@ class ConversionsSpec extends FlatSpec with Matchers {
 
   import Conversions.anyToValue
 
-  "Conversions#anyToValue" should "conver" in {
+  "Conversions#anyToValue" should "convert scala to Java Object" in {
 
     val aa = anyToValue("tkrs").getObject() //
     aa shouldBe a[java.lang.String]
@@ -70,7 +70,7 @@ class ConversionsSpec extends FlatSpec with Matchers {
 
   }
 
-  "AsRecordConversion#toRecordOption" should "convet java to scala" in {
+  "AsRecordConversion#toRecordOption" should "convert java to scala Object" in {
 
     import Conversions._
     val hm = new java.util.HashMap[String, Object]()

@@ -33,18 +33,17 @@ object policy {
       p.maxSocketIdle = maxSocketIdle
       p.tendInterval = tendInterval
       p.failIfNotConnected = failIfNotConnected
-      p.readPolicyDefault = readPolicyDefault
-      p.writePolicyDefault = writePolicyDefault
-      p.scanPolicyDefault = scanPolicyDefault
-      p.queryPolicyDefault = queryPolicyDefault
-      p.batchPolicyDefault = batchPolicyDefault
-      p.infoPolicyDefault = infoPolicyDefault
+      p.asyncReadPolicyDefault = readPolicyDefault
+      p.asyncWritePolicyDefault = writePolicyDefault
+      p.asyncScanPolicyDefault = scanPolicyDefault
+      p.asyncQueryPolicyDefault = queryPolicyDefault
+      p.asyncBatchPolicyDefault = batchPolicyDefault
       p.sharedThreadPool = sharedThreadPool
       p.requestProleReplicas = requestProleReplicas
       p
     }
   }
-  type ClientPolicy = com.aerospike.client.policy.ClientPolicy
+  type ClientPolicy = com.aerospike.client.async.AsyncClientPolicy
 
   object Policy {
     def apply(
@@ -53,7 +52,7 @@ object policy {
       replica: Replica = Replica.MASTER,
       timeout: Int = 0,
       maxRetries: Int = 1,
-      sleepBetweenRetries: Int = 500,
+      sleepBetweenRetries: Int = 0,
       sendKey: Boolean = false): Policy = {
       val p: Policy = new Policy()
       p.priority = priority
@@ -75,7 +74,7 @@ object policy {
       replica: Replica = Replica.MASTER,
       timeout: Int = 0,
       maxRetries: Int = 1,
-      sleepBetweenRetries: Int = 500,
+      sleepBetweenRetries: Int = 0,
       sendKey: Boolean = false,
       recordExistsAction: RecordExistsAction = RecordExistsAction.UPDATE,
       generationPolicy: GenerationPolicy = GenerationPolicy.NONE,
@@ -107,7 +106,7 @@ object policy {
       replica: Replica = Replica.MASTER,
       timeout: Int = 0,
       maxRetries: Int = 0,
-      sleepBetweenRetries: Int = 500,
+      sleepBetweenRetries: Int = 0,
       sendKey: Boolean = false,
       scanPercent: Int = 100,
       maxConcurrentNodes: Int = 0,
@@ -139,7 +138,7 @@ object policy {
       replica: Replica = Replica.MASTER,
       timeout: Int = 0,
       maxRetries: Int = 0,
-      sleepBetweenRetries: Int = 500,
+      sleepBetweenRetries: Int = 0,
       sendKey: Boolean = false,
       maxConcurrentNodes: Int = 0,
       recordQueueSize: Int = 5000): QueryPolicy = {
@@ -165,7 +164,7 @@ object policy {
       replica: Replica = Replica.MASTER,
       timeout: Int = 0,
       maxRetries: Int = 1,
-      sleepBetweenRetries: Int = 500,
+      sleepBetweenRetries: Int = 0,
       sendKey: Boolean = false,
       maxConcurrentThreads: Int = 1,
       useBatchDirect: Boolean = false,
