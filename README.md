@@ -12,9 +12,9 @@ It is just a wrapper to [aerospike-java-client](https://github.com/aerospike/aer
 ## Getting started
 
 ```scala
-libraryDependencies += "com.aerospike" % "aerospike-client" % "3.1.3",
-libraryDependencies += "com.github.tkrs" %% "aerospiker" % "0.2.1-SNAPSHOT"
-```  
+libraryDependencies += "com.aerospike" % "aerospike-client" % "3.1.4",
+libraryDependencies += "com.github.tkrs" %% "aerospiker" % "0.3.0"
+```
 
 ## Support
 
