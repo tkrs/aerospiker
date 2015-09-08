@@ -5,7 +5,6 @@ import com.aerospike.client.listener._
 import com.aerospike.client.task.RegisterTask
 
 import scalaz._, Scalaz._
-import scalaz.{ NonEmptyList => NEL }
 import scalaz.concurrent.Task
 
 sealed trait Error
@@ -26,8 +25,7 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*
-      )
+        bins: _*)
     } attempt
   }
 
@@ -40,8 +38,7 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*
-      )
+        bins: _*)
     } attempt
   }
 
@@ -54,8 +51,7 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*
-      )
+        bins: _*)
     } attempt
   }
 
@@ -68,8 +64,7 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*
-      )
+        bins: _*)
     } attempt
   }
 
@@ -81,8 +76,7 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey): Unit = { register(\/-({})) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key
-      )
+        key)
     } attempt
   }
 
@@ -94,8 +88,7 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey, existed: Boolean): Unit = { register(\/-(existed)) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key
-      )
+        key)
     } attempt
   }
 
@@ -107,22 +100,26 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey, exists: Boolean): Unit = { register(\/-(exists)) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key
-      )
+        key)
     } attempt
   }
 
-  def get[A](key: Key, binNames: String*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Seq[Option[Record]]] {
-    Task.async[Seq[Option[Record]]] { register =>
+  def get[A](key: Key, binNames: String*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Option[Record]] {
+    Task.async[Option[Record]] { register =>
       self.asClient.get(
         cp.asyncBatchPolicyDefault,
         new RecordArrayListener {
-          def onSuccess(key: Array[AKey], records: Array[ARecord]): Unit = { register(\/-(records.toSeq.map(_.toRecordOption))) }
+          def onSuccess(key: Array[AKey], records: Array[ARecord]): Unit = {
+            register(\/-(records.toSeq.map(_.toRecordOption) match {
+              case singleton @ Seq(x) => x
+              case Seq(head, _*) => head
+              case _ => None
+            }))
+          }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         Array(key),
-        binNames: _*
-      )
+        binNames: _*)
     } attempt
   }
 
@@ -134,15 +131,12 @@ trait Operation { self: Client =>
           def onSuccess(keys: Array[Key], records: Array[ARecord]): Unit = register(\/-(keys.zip(records.map(_.toRecordOption)).toSeq))
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        keys
-      )
+        keys)
     } attempt
   }
 
   def register(resourcePath: String, serverPath: String)(
-    implicit
-    cp: ClientPolicy, cl: ClassLoader = getClass.getClassLoader, lang: Language = Language.LUA
-  ) = EitherT[Task, Throwable, RegisterTask] {
+    implicit cp: ClientPolicy, cl: ClassLoader = getClass.getClassLoader, lang: Language = Language.LUA) = EitherT[Task, Throwable, RegisterTask] {
     Task[RegisterTask] {
       self.asClient.register(cp.asyncWritePolicyDefault, cl, resourcePath, serverPath, lang)
     } attempt
@@ -154,30 +148,25 @@ trait Operation { self: Client =>
     } attempt
   }
 
-  def scanAll[A](namespace: String, setName: String, binNames: String*)(implicit cp: ClientPolicy): Task[Validation[NEL[Throwable], List[(Key, Record)]]] =
-    Task[Validation[NEL[Throwable], List[(Key, Record)]]] {
-      var result = List.empty[(Key, Record)].successNel[AerospikeException]
-      val listener = new RecordSequenceListener {
-        override def onRecord(key: Key, record: ARecord): Unit = {
-          val rec = record.toRecordOption match {
-            case Some(v) => { xs: List[(Key, Record)] => (key, v) :: xs }.successNel[AerospikeException]
-            case None => new AerospikeException(s"key: ${key} is not found").failureNel[List[(Key, Record)] => List[(Key, Record)]]
-          }
-          result = result <*> rec
-        }
-        override def onFailure(exception: AerospikeException): Unit = {
-          // TODO: error logging
-        }
-        override def onSuccess(): Unit = {}
-      }
-      self.asClient.scanAll(cp.asyncScanPolicyDefault, listener, namespace, setName, binNames: _*)
-      result
-    }
+  def scanAll[A](namespace: String, setName: String, binNames: String*)(implicit cp: ClientPolicy): Task[Throwable \/ Seq[(Key, Option[Record])]] =
+    Task.async[Seq[(Key, Option[Record])]] { register =>
+      import scala.collection.mutable.ListBuffer
+      val buffer: ListBuffer[(Key, Option[Record])] = ListBuffer.empty
+      self.asClient.scanAll(
+        cp.asyncScanPolicyDefault,
+        new RecordSequenceListener {
+          def onRecord(key: Key, record: ARecord): Unit = buffer += key -> record.toRecordOption
+          def onFailure(e: AerospikeException): Unit = register(e.left)
+          def onSuccess(): Unit = register(buffer.toSeq.right)
+        },
+        namespace,
+        setName,
+        binNames: _*
+      )
+    } attempt
 
   def execute[R](key: Key, packageName: String, funcName: String, values: Value*)(
-    implicit
-    cp: ClientPolicy, decoder: ObjectDecoder[R]
-  ) = EitherT[Task, Throwable, R] {
+    implicit cp: ClientPolicy, decoder: ObjectDecoder[R]) = EitherT[Task, Throwable, R] {
     Task.async[R] { register =>
       self.asClient.execute(
         cp.asyncWritePolicyDefault,
@@ -188,8 +177,7 @@ trait Operation { self: Client =>
         key,
         packageName,
         funcName,
-        values: _*
-      )
+        values: _*)
     } attempt
   }
 
