@@ -55,7 +55,7 @@ lazy val cats = Seq(
 lazy val test = Seq(
   "org.scalatest" %% "scalatest" % scalatestVersion,
   "org.scalacheck" %% "scalacheck" % scalacheckVersion
-) map (_ % "it,test")
+) map (_ % "test")
 
 lazy val others = Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
@@ -65,25 +65,6 @@ lazy val others = Seq(
 lazy val deps = (scalaz ++ others ++ test ++ cats) map (_.withSources())
 
 libraryDependencies ++= deps
-
-lazy val commonSettings = Seq(
-  scalaVersion := "2.11.7",
-  organization := "com.github.tkrs"
-)
-lazy val specs2core = "org.specs2" %% "specs2-core" % "2.4.14"
-
-lazy val root = (project in file(".")).
-  configs(IntegrationTest).
-  settings(commonSettings: _*).
-  settings(Defaults.itSettings: _*).
-  settings(
-    libraryDependencies += specs2core % "it,test"
-    // other settings here
-  )
-
-
-// --------------------------------------------------
-// Each plugins settings
 
 scalariformSettings
 

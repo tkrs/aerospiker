@@ -25,7 +25,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -38,7 +39,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -51,7 +53,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -64,7 +67,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -76,7 +80,8 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey): Unit = { register(\/-({})) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key)
+        key
+      )
     } attempt
   }
 
@@ -88,7 +93,8 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey, existed: Boolean): Unit = { register(\/-(existed)) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key)
+        key
+      )
     } attempt
   }
 
@@ -100,7 +106,8 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey, exists: Boolean): Unit = { register(\/-(exists)) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key)
+        key
+      )
     } attempt
   }
 
@@ -119,7 +126,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         Array(key),
-        binNames: _*)
+        binNames: _*
+      )
     } attempt
   }
 
@@ -131,12 +139,15 @@ trait Operation { self: Client =>
           def onSuccess(keys: Array[Key], records: Array[ARecord]): Unit = register(\/-(keys.zip(records.map(_.toRecordOption)).toSeq))
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        keys)
+        keys
+      )
     } attempt
   }
 
   def register(resourcePath: String, serverPath: String)(
-    implicit cp: ClientPolicy, cl: ClassLoader = getClass.getClassLoader, lang: Language = Language.LUA) = EitherT[Task, Throwable, RegisterTask] {
+    implicit
+    cp: ClientPolicy, cl: ClassLoader = getClass.getClassLoader, lang: Language = Language.LUA
+  ) = EitherT[Task, Throwable, RegisterTask] {
     Task[RegisterTask] {
       self.asClient.register(cp.asyncWritePolicyDefault, cl, resourcePath, serverPath, lang)
     } attempt
@@ -166,7 +177,9 @@ trait Operation { self: Client =>
     } attempt
 
   def execute[R](key: Key, packageName: String, funcName: String, values: Value*)(
-    implicit cp: ClientPolicy, decoder: ObjectDecoder[R]) = EitherT[Task, Throwable, R] {
+    implicit
+    cp: ClientPolicy, decoder: ObjectDecoder[R]
+  ) = EitherT[Task, Throwable, R] {
     Task.async[R] { register =>
       self.asClient.execute(
         cp.asyncWritePolicyDefault,
@@ -177,7 +190,8 @@ trait Operation { self: Client =>
         key,
         packageName,
         funcName,
-        values: _*)
+        values: _*
+      )
     } attempt
   }
 
