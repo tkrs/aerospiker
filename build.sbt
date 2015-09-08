@@ -40,11 +40,16 @@ resolvers += Resolver.sonatypeRepo("snapshots")
 lazy val scalazVersion = "7.1.3"
 lazy val scalacheckVersion = "1.12.3"
 lazy val scalatestVersion = "2.2.5"
+lazy val catsVersion = "0.1.2"
 
 lazy val scalaz = Seq(
   "org.scalaz" %% "scalaz-core" % scalazVersion,
   "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
   "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion % "test"
+)
+
+lazy val cats = Seq(
+  "org.spire-math" %% "cats" % catsVersion
 )
 
 lazy val test = Seq(
@@ -53,10 +58,11 @@ lazy val test = Seq(
 ) map (_ % "it,test")
 
 lazy val others = Seq(
-  "com.aerospike" % "aerospike-client" % "3.1.3"
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+  "com.aerospike" % "aerospike-client" % "3.1.4"
 )
 
-lazy val deps = (scalaz ++ others ++ test) map (_.withSources())
+lazy val deps = (scalaz ++ others ++ test ++ cats) map (_.withSources())
 
 libraryDependencies ++= deps
 
