@@ -3,6 +3,7 @@ package org.aerospiker
 import com.aerospike.client.{ Key => AKey, Record => ARecord, AerospikeException, Language }
 import com.aerospike.client.listener._
 import com.aerospike.client.task.RegisterTask
+import org.aerospiker.codec.ObjectDecoder
 
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task

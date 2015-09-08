@@ -1,4 +1,4 @@
-package org.aerospiker
+package org.aerospiker.codec
 
 trait ObjectDecoder[A] {
   def apply(o: Any): A
