@@ -5,6 +5,7 @@ import com.aerospike.client.listener._
 import com.aerospike.client.task.RegisterTask
 
 import scalaz._, Scalaz._
+import scalaz.{ NonEmptyList => NEL }
 import scalaz.concurrent.Task
 
 sealed trait Error
@@ -25,7 +26,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -38,7 +40,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -51,7 +54,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -64,7 +68,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         key,
-        bins: _*)
+        bins: _*
+      )
     } attempt
   }
 
@@ -76,7 +81,8 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey): Unit = { register(\/-({})) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key)
+        key
+      )
     } attempt
   }
 
@@ -88,7 +94,8 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey, existed: Boolean): Unit = { register(\/-(existed)) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key)
+        key
+      )
     } attempt
   }
 
@@ -100,7 +107,8 @@ trait Operation { self: Client =>
           def onSuccess(key: AKey, exists: Boolean): Unit = { register(\/-(exists)) }
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        key)
+        key
+      )
     } attempt
   }
 
@@ -113,7 +121,8 @@ trait Operation { self: Client =>
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         Array(key),
-        binNames: _*)
+        binNames: _*
+      )
     } attempt
   }
 
@@ -125,12 +134,15 @@ trait Operation { self: Client =>
           def onSuccess(keys: Array[Key], records: Array[ARecord]): Unit = register(\/-(keys.zip(records.map(_.toRecordOption)).toSeq))
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
-        keys)
+        keys
+      )
     } attempt
   }
 
   def register(resourcePath: String, serverPath: String)(
-    implicit cp: ClientPolicy, cl: ClassLoader = getClass.getClassLoader, lang: Language = Language.LUA) = EitherT[Task, Throwable, RegisterTask] {
+    implicit
+    cp: ClientPolicy, cl: ClassLoader = getClass.getClassLoader, lang: Language = Language.LUA
+  ) = EitherT[Task, Throwable, RegisterTask] {
     Task[RegisterTask] {
       self.asClient.register(cp.asyncWritePolicyDefault, cl, resourcePath, serverPath, lang)
     } attempt
@@ -142,30 +154,30 @@ trait Operation { self: Client =>
     } attempt
   }
 
-  def scanAll[A](namespace: String, setName: String, binNames: String*)(implicit cp: ClientPolicy) =
-    Task[Seq[Throwable \/ (Key, Option[Record])]] {
-      import scala.collection.mutable.ListBuffer
-      val result: ListBuffer[Throwable \/ (Key, Option[Record])] = ListBuffer.empty
-      try {
-        self.asClient.scanAll(
-          cp.asyncScanPolicyDefault,
-          new RecordSequenceListener {
-            def onRecord(key: Key, record: ARecord): Unit = result += (key, record.toRecordOption).right
-            def onFailure(e: AerospikeException): Unit = result += e.left
-            def onSuccess(): Unit = {}
-          },
-          namespace,
-          setName,
-          binNames: _*
-        )
-      } catch {
-        case e: Throwable => result += e.left
+  def scanAll[A](namespace: String, setName: String, binNames: String*)(implicit cp: ClientPolicy): Task[Validation[NEL[Throwable], List[(Key, Record)]]] =
+    Task[Validation[NEL[Throwable], List[(Key, Record)]]] {
+      var result = List.empty[(Key, Record)].successNel[AerospikeException]
+      val listener = new RecordSequenceListener {
+        override def onRecord(key: Key, record: ARecord): Unit = {
+          val rec = record.toRecordOption match {
+            case Some(v) => { xs: List[(Key, Record)] => (key, v) :: xs }.successNel[AerospikeException]
+            case None => new AerospikeException(s"key: ${key} is not found").failureNel[List[(Key, Record)] => List[(Key, Record)]]
+          }
+          result = result <*> rec
+        }
+        override def onFailure(exception: AerospikeException): Unit = {
+          // TODO: error logging
+        }
+        override def onSuccess(): Unit = {}
       }
-      result.toSeq
+      self.asClient.scanAll(cp.asyncScanPolicyDefault, listener, namespace, setName, binNames: _*)
+      result
     }
 
   def execute[R](key: Key, packageName: String, funcName: String, values: Value*)(
-    implicit cp: ClientPolicy, decoder: ObjectDecoder[R]) = EitherT[Task, Throwable, R] {
+    implicit
+    cp: ClientPolicy, decoder: ObjectDecoder[R]
+  ) = EitherT[Task, Throwable, R] {
     Task.async[R] { register =>
       self.asClient.execute(
         cp.asyncWritePolicyDefault,
@@ -176,7 +188,8 @@ trait Operation { self: Client =>
         key,
         packageName,
         funcName,
-        values: _*)
+        values: _*
+      )
     } attempt
   }
 

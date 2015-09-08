@@ -24,7 +24,8 @@ object policy {
       batchPolicyDefault: BatchPolicy = BatchPolicy(),
       infoPolicyDefault: InfoPolicy = InfoPolicy(),
       sharedThreadPool: Boolean = false,
-      requestProleReplicas: Boolean = false): ClientPolicy = {
+      requestProleReplicas: Boolean = false
+    ): ClientPolicy = {
       val p = new ClientPolicy()
       p.user = user
       p.password = password
@@ -53,7 +54,8 @@ object policy {
       timeout: Int = 0,
       maxRetries: Int = 1,
       sleepBetweenRetries: Int = 0,
-      sendKey: Boolean = false): Policy = {
+      sendKey: Boolean = false
+    ): Policy = {
       val p: Policy = new Policy()
       p.priority = priority
       p.consistencyLevel = consistencyLevel
@@ -80,7 +82,8 @@ object policy {
       generationPolicy: GenerationPolicy = GenerationPolicy.NONE,
       commitLevel: CommitLevel = CommitLevel.COMMIT_ALL,
       generation: Int = 0,
-      expiration: Int = 0): WritePolicy = {
+      expiration: Int = 0
+    ): WritePolicy = {
       val p = new WritePolicy()
       p.priority = priority
       p.consistencyLevel = consistencyLevel
@@ -112,7 +115,8 @@ object policy {
       maxConcurrentNodes: Int = 0,
       concurrentNodes: Boolean = true,
       includeBinData: Boolean = true,
-      failOnClusterChange: Boolean = false): ScanPolicy = {
+      failOnClusterChange: Boolean = false
+    ): ScanPolicy = {
       val p = new ScanPolicy()
       p.priority = priority
       p.consistencyLevel = consistencyLevel
@@ -141,7 +145,8 @@ object policy {
       sleepBetweenRetries: Int = 0,
       sendKey: Boolean = false,
       maxConcurrentNodes: Int = 0,
-      recordQueueSize: Int = 5000): QueryPolicy = {
+      recordQueueSize: Int = 5000
+    ): QueryPolicy = {
       val p = new QueryPolicy()
       p.priority = priority
       p.consistencyLevel = consistencyLevel
@@ -168,7 +173,8 @@ object policy {
       sendKey: Boolean = false,
       maxConcurrentThreads: Int = 1,
       useBatchDirect: Boolean = false,
-      allowInline: Boolean = true): BatchPolicy = {
+      allowInline: Boolean = true
+    ): BatchPolicy = {
       val p = new BatchPolicy()
       p.priority = priority
       p.consistencyLevel = consistencyLevel

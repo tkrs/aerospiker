@@ -24,4 +24,5 @@ case class Empty()
 final case class Record(
   bins: Map[String, Any],
   generation: Int,
-  expiration: Int)
+  expiration: Int
+)
