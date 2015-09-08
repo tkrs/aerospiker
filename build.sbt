@@ -2,7 +2,7 @@ name := "aerospiker"
 
 organization := "com.github.tkrs"
 
-version := "0.3.0-SNAPSHOT"
+version := "0.3.0"
 
 scalaVersion := "2.11.7"
 publishMavenStyle := true
