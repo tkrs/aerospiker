@@ -2,7 +2,7 @@ package org.aerospiker
 
 import com.aerospike.client.async.AsyncClient
 
-import policy._
+import policy.ClientPolicy
 
 object Client {
   def apply(hosts: Seq[Host])(implicit policy: ClientPolicy): Client = new Client(hosts)(policy)

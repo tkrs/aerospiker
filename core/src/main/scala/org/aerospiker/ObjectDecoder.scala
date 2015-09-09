@@ -1,4 +1,4 @@
-package org.aerospiker.codec
+package org.aerospiker
 
 trait ObjectDecoder[A] {
   def apply(o: Any): A
@@ -11,8 +11,6 @@ object ObjectDecoder {
 
   implicit val idObjectDecoder = ObjectDecoder[Any](identity)
 
-  implicit val stringObjectDecoder = ObjectDecoder[String] { o =>
-    String.valueOf(o)
-  }
+  implicit val stringObjectDecoder = ObjectDecoder[String] { String valueOf _ }
 
 }

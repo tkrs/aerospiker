@@ -3,7 +3,6 @@ package org.aerospiker
 import com.aerospike.client.{ Key => AKey, Record => ARecord, AerospikeException, Language }
 import com.aerospike.client.listener._
 import com.aerospike.client.task.RegisterTask
-import org.aerospiker.codec.ObjectDecoder
 
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task
@@ -14,8 +13,8 @@ case class ResponseError(ex: Throwable) extends Error
 
 trait Operation { self: Client =>
 
-  import Conversions._
   import policy.ClientPolicy
+  import syntax._
 
   def put[A](key: Key, bins: Bin*)(implicit cp: ClientPolicy) = EitherT[Task, Throwable, Unit] {
     Task.async[Unit] { register =>
@@ -118,7 +117,7 @@ trait Operation { self: Client =>
         cp.asyncBatchPolicyDefault,
         new RecordArrayListener {
           def onSuccess(key: Array[AKey], records: Array[ARecord]): Unit = {
-            register(\/-(records.toSeq.map(_.toRecordOption) match {
+            register(\/-(records.toSeq.map(_.asRecordOption) match {
               case singleton @ Seq(x) => x
               case Seq(head, _*) => head
               case _ => None
@@ -137,7 +136,7 @@ trait Operation { self: Client =>
       self.asClient.getHeader(
         cp.batchPolicyDefault,
         new RecordArrayListener {
-          def onSuccess(keys: Array[Key], records: Array[ARecord]): Unit = register(\/-(keys.zip(records.map(_.toRecordOption)).toSeq))
+          def onSuccess(keys: Array[Key], records: Array[ARecord]): Unit = register(\/-(keys.zip(records.map(_.asRecordOption)).toSeq))
           def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
         },
         keys
@@ -167,7 +166,7 @@ trait Operation { self: Client =>
       self.asClient.scanAll(
         cp.asyncScanPolicyDefault,
         new RecordSequenceListener {
-          def onRecord(key: Key, record: ARecord): Unit = buffer += key -> record.toRecordOption
+          def onRecord(key: Key, record: ARecord): Unit = buffer += key -> record.asRecordOption
           def onFailure(e: AerospikeException): Unit = register(e.left)
           def onSuccess(): Unit = register(buffer.toSeq.right)
         },

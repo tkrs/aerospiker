@@ -1,7 +1,7 @@
-package org.aerospiker.codec
+package org.aerospiker.service
 
 import cats.data.Xor
-import org.aerospiker.Key
+import org.aerospiker._
 
 import scalaz.concurrent.Task
 
@@ -16,12 +16,12 @@ sealed trait Database {
   def deletes[M](keys: Seq[String]): Task[Seq[Throwable Xor Boolean]]
 }
 
-abstract class AerospikeType extends Database {
+abstract class DefaultType extends Database {
   override type D[A] = BinsDecoder[A]
   override type E[A] = BinsEncoder[A]
 }
 
-abstract class AerospikeLargeMapType extends Database {
+abstract class LargeMapType extends Database {
   type D[A] = LDValueDecoder[A]
   type E[A] = LDValueEncoder[A]
 }

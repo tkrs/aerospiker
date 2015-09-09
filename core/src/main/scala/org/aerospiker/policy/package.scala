@@ -1,12 +1,10 @@
 package org.aerospiker
 
-import com.aerospike.client.policy.{ Priority, ConsistencyLevel, Replica, RecordExistsAction, GenerationPolicy, CommitLevel }
+import com.aerospike.client.policy.{ CommitLevel, ConsistencyLevel, GenerationPolicy, Priority, RecordExistsAction, Replica }
 
-object policy {
+package object policy {
 
-  object Implicits {
-    implicit val defaultClientPolicy: ClientPolicy = ClientPolicy()
-  }
+  implicit val defaultClientPolicy: ClientPolicy = ClientPolicy()
 
   object ClientPolicy {
     def apply(

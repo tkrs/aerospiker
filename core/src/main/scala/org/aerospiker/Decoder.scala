@@ -1,4 +1,4 @@
-package org.aerospiker.codec
+package org.aerospiker
 
 sealed trait Decoder[A]
 

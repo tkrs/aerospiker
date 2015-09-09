@@ -1,6 +1,4 @@
-package org.aerospiker.codec
-
-import org.aerospiker.Bin
+package org.aerospiker
 
 sealed trait Encoder[A]
 

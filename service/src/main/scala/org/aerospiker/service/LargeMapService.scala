@@ -1,38 +1,40 @@
-package org.aerospiker
-package codec
+package org.aerospiker.service
 
-import cats.data.{ Ior, NonEmptyList => NEL, Xor }
-import com.aerospike.client.large.LargeMap
+import cats.data.Xor
+import com.aerospike.client.large.{ LargeMap => LMap }
 import com.typesafe.scalalogging.LazyLogging
-import org.aerospiker.{ Client => AsClient }
-import org.aerospiker.Conversions._
-import org.aerospiker.policy._
-import scala.collection.JavaConversions._
+import org.aerospiker.{ ValueEncoder, Client, Key }
+import org.aerospiker.policy.ClientPolicy
+
 import scalaz.concurrent.Task
 
-abstract class AerospikeLargeMap(val client: AsClient)(implicit cp: ClientPolicy) extends AerospikeLargeMapType with LazyLogging {
+abstract class LargeMapService(val client: Client)(implicit cp: ClientPolicy) extends LargeMapType with LazyLogging {
+
+  import scala.collection.JavaConversions._
 
   protected def namespace: String
   protected def setName: String
   protected def key: String
   protected def binName: String
 
-  private[this] lazy val lmap: LargeMap = {
+  private[this] lazy val lmap: LMap = {
     logger.debug(s"$namespace :: $setName :: $key")
     val k = Key(namespace, setName, key)
     client.asClient.getLargeMap(cp.writePolicyDefault, k, binName, null)
   }
 
+  def value[A](p: A)(implicit encoder: ValueEncoder[A]) = encoder(p)
+
   override def get[M](key: String)(implicit decoder: D[M]): Throwable Xor Option[M] = {
     Xor.fromTryCatch[Throwable] {
-      lmap.get(key).toMap.asInstanceOf[Map[String, Any]]
+      lmap.get(value(key)).toMap.asInstanceOf[Map[String, Any]]
     } map (m => decoder(m))
   }
 
   override def put[M](lmKey: String, m: M)(implicit encoder: E[M]): Throwable Xor Unit =
     Xor.fromTryCatch[Throwable] {
       logger.debug(m.toString)
-      lmap.put(lmKey, encoder(m))
+      lmap.put(value(lmKey), value(encoder(m)))
     }
 
   override def all[M](target: String, binNames: Seq[String])(implicit decoder: D[M]): Throwable Xor Seq[(Key, Option[M])] = ???
@@ -43,4 +45,3 @@ abstract class AerospikeLargeMap(val client: AsClient)(implicit cp: ClientPolicy
 
   override def delete[M](key: String): Xor[Throwable, Unit] = ???
 }
-

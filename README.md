@@ -9,11 +9,15 @@ This is a Aerospike client implementation for scala.
 
 It is just a wrapper to [aerospike-java-client](https://github.com/aerospike/aerospike-client-java)
 
+current supported 3.1.4
+
 ## Getting started
 
 ```scala
-libraryDependencies += "com.aerospike" % "aerospike-client" % "3.1.4",
-libraryDependencies += "com.github.tkrs" %% "aerospiker" % "0.3.0"
+libraryDependencies ++= Seq(
+  "com.github.tkrs" %% "aerospiker-core" % "0.3.0",
+  "com.github.tkrs" %% "aerospiker-service" % "0.1.0-SNAPSHOT"
+)
 ```
 
 ## Support

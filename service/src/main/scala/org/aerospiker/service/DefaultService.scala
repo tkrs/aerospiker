@@ -1,19 +1,16 @@
-package org.aerospiker.codec
+package org.aerospiker.service
 
-import cats._, cats.data.{ Xor, NonEmptyList => NEL }, cats.std.all._, cats.syntax.all._
+import cats._
+import cats.data.{ NonEmptyList => NEL, Xor }
+import cats.std.all._
 import com.typesafe.scalalogging.LazyLogging
-import org.aerospiker._
-import org.aerospiker.policy._
+import org.aerospiker.{ Client, Key, Record }
+import org.aerospiker.policy.ClientPolicy
 
-sealed trait DBError extends Exception
-case class PutError(key: String) extends DBError
-case class DeleteError(key: String) extends DBError
-case class NoSuchKey(key: String) extends DBError
-
-abstract class Client(val client: org.aerospiker.Client)(implicit dp: ClientPolicy) extends AerospikeType with LazyLogging {
+abstract class DefaultService(val client: Client)(implicit dp: ClientPolicy) extends DefaultType with LazyLogging {
 
   import scalaz.concurrent.Task
-  import scalaz.{ \/, -\/, \/- }
+  import scalaz.{ -\/, \/, \/- }
 
   implicit val nelSemigroup: Semigroup[NEL[Throwable]] = SemigroupK[NEL].algebra[Throwable]
 
