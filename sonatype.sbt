@@ -8,9 +8,11 @@ pomExtra in Global := {
       <url>http://www.opensource.org/licenses/mit-license.php</url>
     </license>
   </licenses>
-  <connection>scm:git:github.com/aerospiker</connection>
-  <developerConnection>scm:git:git@github.com:tkrs/aerospiker</developerConnection>
-  <url>github.com/tkrs/aerospiker</url>
+  <scm>
+    <url>github.com/tkrs/aerospiker</url>
+    <connection>scm:git:github.com/aerospiker</connection>
+    <developerConnection>scm:git:git@github.com:tkrs/aerospiker</developerConnection>
+  </scm>
   <developers>
     <developer>
       <id>tkrs</id>
