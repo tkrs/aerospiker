@@ -1,11 +1,12 @@
 val coreVersion = "0.4.0-SNAPSHOT"
-val serviceVersion = "0.1.0-SNAPSHOT"
+val taskVersion = "0.1.0-SNAPSHOT"
+val msgpackVersion = "0.1.0-SNAPSHOT"
 
 lazy val root = project.in(file("."))
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, service)
-  .dependsOn(core, service)
+  .aggregate(core, task, msgpack)
+  .dependsOn(core, task, msgpack)
 
 lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings
 
@@ -15,9 +16,10 @@ lazy val buildSettings = Seq(
 )
 
 val aerospikeVersion = "3.1.4"
+val circeVersion = "0.1.1"
 val scalazVersion = "7.1.3"
-val scalacheckVersion = "1.12.3"
-val scalatestVersion = "2.2.5"
+// val scalacheckVersion = "1.12.3"
+// val scalatestVersion = "2.2.5"
 val catsVersion = "0.1.2"
 
 lazy val baseSettings = Seq(
@@ -25,8 +27,13 @@ lazy val baseSettings = Seq(
   scalacOptions in (Compile, console) := compilerOptions,
   scalacOptions in (Compile, test) := compilerOptions,
   libraryDependencies ++= Seq(
+    "com.aerospike" % "aerospike-client" % aerospikeVersion,
+    "io.circe" %% "circe-core" % circeVersion,
+    "io.circe" %% "circe-generic" % circeVersion,
+    "io.circe" %% "circe-jawn" % circeVersion,
     "org.scalaz" %% "scalaz-core" % scalazVersion,
-    "org.scalaz" %% "scalaz-concurrent" % scalazVersion
+    "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -84,27 +91,53 @@ lazy val core = project.in(file("core"))
     version := coreVersion
   )
   .settings(allSettings: _*)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.aerospike" % "aerospike-client" % aerospikeVersion
-    )
-  )
+  .dependsOn(msgpack)
 
-lazy val service = project.in(file("service"))
+lazy val task = project.in(file("task"))
   .settings(
-    description := "aerospiker service",
-    moduleName := "aerospiker-service",
-    name := "service",
-    version := serviceVersion
+    description := "aerospiker task",
+    moduleName := "aerospiker-task",
+    name := "task",
+    version := taskVersion
   )
   .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "org.spire-math" %% "cats" % catsVersion,
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
+      // "org.scalaz" %% "scalaz-core" % scalazVersion,
+      "org.scalaz" %% "scalaz-concurrent" % scalazVersion
     )
   )
   .dependsOn(core)
+
+lazy val msgpack = project.in(file("msgpack"))
+  .settings(
+    description := "aerospiker msgpack",
+    moduleName := "aerospiker-msgpack",
+    name := "msgpack",
+    version := msgpackVersion
+  )
+  .settings(allSettings: _*)
+//  .settings(
+//    libraryDependencies ++= Seq(
+//      "org.spire-math" %% "cats" % catsVersion
+//    )
+//  )
+
+lazy val example = project.in(file("example"))
+  .settings(
+    description := "aerospiker example",
+    moduleName := "aerospiker-example",
+    name := "example"
+  )
+  .settings(allSettings: _*)
+  .settings(noPublishSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.spire-math" %% "cats" % catsVersion,
+      "org.slf4j" % "slf4j-simple" % "1.7.12"
+    )
+  )
+  .dependsOn(core, task, msgpack)
 
 lazy val compilerOptions = Seq(
   "-deprecation",
@@ -121,6 +154,8 @@ lazy val compilerOptions = Seq(
   "-Yinline-warnings",
   "-Xlint"
 )
+
+javaOptions += "-Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG"
 
 //lazy val tests = Seq(
 //  "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion,
