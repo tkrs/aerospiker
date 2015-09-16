@@ -8,7 +8,7 @@ import com.aerospike.client.command.ParticleType
 import io.circe._
 import scala.collection.mutable.ListBuffer
 
-// TODO: Improve implement
+// TODO: Improve implementation
 
 /**
  * De-serialize collection objects using MessagePack format specification:
@@ -26,9 +26,7 @@ object JsonUnpacker {
     new JsonUnpacker(buffer, 0, buffer.length).unpackMap
 }
 
-class JsonUnpacker(buffer: Array[Byte], _offset: Int, length: Int) {
-
-  var offset = _offset
+class JsonUnpacker(buffer: Array[Byte], var offset: Int, length: Int) {
 
   @throws(classOf[AerospikeException])
   final def unpackList: Json = {

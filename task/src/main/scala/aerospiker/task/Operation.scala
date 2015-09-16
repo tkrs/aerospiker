@@ -167,10 +167,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
     val t = Task.async[Option[R]] { register =>
       command.execute[Seq[String], Map[String, R]](
         Some(new ExecuteListener[Map[String, R]] {
-          override def onFailure(e: AerospikeException): Unit = {
-            e.printStackTrace()
-            register(-\/(e))
-          }
+          override def onFailure(e: AerospikeException): Unit = register(-\/(e))
           override def onSuccess(key: Key, a: Option[Record[Map[String, R]]]): Unit = {
             val o = a.collect {
               case Record(Some(x), _, _) => x

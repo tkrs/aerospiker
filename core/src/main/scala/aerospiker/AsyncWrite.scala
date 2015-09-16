@@ -76,11 +76,7 @@ final class AsyncWrite[T](
       writeField(key.setName, FieldType.TABLE, 0, true),
       writeField(key.digest, FieldType.DIGEST_RIPE, 0, true),
       writeField(key.userKey.toString, FieldType.KEY, 1, policy.sendKey)
-    ) collect {
-        case Some(a) => a
-      }
-
-    fields foreach (e => logger.debug(e.toString))
+    ) collect { case Some(a) => a }
 
     val header = (updateHeader3 andThen updateHeader2 andThen updateHeader1 andThen updateHeader0)(
       Header(headerLength = C.MSG_REMAINING_HEADER_SIZE, writeAttr = C.INFO2_WRITE, fieldCount = fields.size, operationCount = jsonObjs.size)

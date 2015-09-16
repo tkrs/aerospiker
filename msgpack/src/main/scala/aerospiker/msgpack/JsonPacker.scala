@@ -7,7 +7,7 @@ import com.aerospike.client.command.{ Buffer, ParticleType }
 
 import io.circe._
 
-// TODO: Improve implement
+// TODO: Improve implementation
 
 /**
  * Serialize collection objects using MessagePack format specification:
