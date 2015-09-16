@@ -3,7 +3,7 @@ package aerospiker
 import java.nio.ByteBuffer
 import com.aerospike.client.policy._
 import com.aerospike.client.{ AerospikeException, Operation }
-import com.aerospike.client.async.{ AsyncCluster, AsyncNode }
+import com.aerospike.client.async.{ AsyncSingleCommand, AsyncCluster, AsyncNode }
 import com.aerospike.client.cluster.Partition
 import com.aerospike.client.command.{ Command => C, ParticleType, FieldType }
 import aerospiker.policy.{ Policy, WritePolicy }
