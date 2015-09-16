@@ -31,8 +31,6 @@ lazy val baseSettings = Seq(
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
     "io.circe" %% "circe-jawn" % circeVersion,
-    "org.scalaz" %% "scalaz-core" % scalazVersion,
-    "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
     "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   ),
   resolvers ++= Seq(
@@ -103,7 +101,7 @@ lazy val task = project.in(file("task"))
   .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      // "org.scalaz" %% "scalaz-core" % scalazVersion,
+      "org.spire-math" %% "cats" % catsVersion,
       "org.scalaz" %% "scalaz-concurrent" % scalazVersion
     )
   )
@@ -117,11 +115,6 @@ lazy val msgpack = project.in(file("msgpack"))
     version := msgpackVersion
   )
   .settings(allSettings: _*)
-//  .settings(
-//    libraryDependencies ++= Seq(
-//      "org.spire-math" %% "cats" % catsVersion
-//    )
-//  )
 
 lazy val example = project.in(file("example"))
   .settings(
@@ -133,7 +126,6 @@ lazy val example = project.in(file("example"))
   .settings(noPublishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.spire-math" %% "cats" % catsVersion,
       "org.slf4j" % "slf4j-simple" % "1.7.12"
     )
   )
@@ -164,4 +156,4 @@ javaOptions += "-Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG"
 //) map (_ % "test")
 
 scalariformSettings
-// wartremoverErrors in (Compile, compile) ++= Warts.all
+wartremoverErrors in (Compile, compile) ++= Warts.all
