@@ -5,76 +5,19 @@
 
 [![wercker status](https://app.wercker.com/status/07c0ec3bd555c18ff328f9f976f3725e/m "wercker status")](https://app.wercker.com/project/bykey/07c0ec3bd555c18ff328f9f976f3725e)
 
-This is a Aerospike client implementation for scala.
+This is a Aerospike client for scala.
 
 It is just a wrapper to [aerospike-java-client](https://github.com/aerospike/aerospike-client-java)
 
 ## Getting started
 
 ```scala
-libraryDependencies += "com.aerospike" % "aerospike-client" % "3.1.4",
-libraryDependencies += "com.github.tkrs" %% "aerospiker" % "0.3.0"
+libraryDependencies ++= Seq(
+  "com.github.tkrs" %% "aerospiker-core" % "0.3.0",
+  "com.github.tkrs" %% "aerospiker-msgpack" % "0.1.0-SNAPSHOT",
+  "com.github.tkrs" %% "aerospiker-task" % "0.1.0-SNAPSHOT"
+)
 ```
-
-## Support
-
-### Operation
-
-- put
-
-- append
-
-- prepend
-
-- add
-
-- delete
-
-- touch
-
-- get
-
-- register
-
-- removeUdf
-
-- execute
-
-- getHeader
-
-- scanAll
-
-### DataType
-
-- Basic types
-
-  - Integer
-
-  - String
-
-- complex types
-
-  - Map (nested)
-
-  - List (nested)
-
-### TODO
-
-- More support operation (create, update, replace, query)
-
-- More support data types (Large data types)
-
-- Unit Test
-
-- Document
-
-- Benchmark
-
-- Erasure to warning
-
-## COPYRIGHT
-
-Copyright (c) 2015 Takeru Sato
 
 ## LICENSE
 
