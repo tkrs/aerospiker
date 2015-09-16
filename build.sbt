@@ -147,8 +147,6 @@ lazy val compilerOptions = Seq(
   "-Xlint"
 )
 
-javaOptions += "-Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG"
-
 //lazy val tests = Seq(
 //  "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion,
 //  "org.scalatest" %% "scalatest" % scalatestVersion,
