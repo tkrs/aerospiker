@@ -13,7 +13,7 @@ It is just a wrapper to [aerospike-java-client](https://github.com/aerospike/aer
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.github.tkrs" %% "aerospiker-core" % "0.3.0",
+  "com.github.tkrs" %% "aerospiker-core" % "0.4.0-SNAPSHOT",
   "com.github.tkrs" %% "aerospiker-msgpack" % "0.1.0-SNAPSHOT",
   "com.github.tkrs" %% "aerospiker-task" % "0.1.0-SNAPSHOT"
 )
