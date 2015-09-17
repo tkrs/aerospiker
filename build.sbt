@@ -1,6 +1,6 @@
 val coreVersion = "0.4.0-SNAPSHOT"
-val taskVersion = "0.1.0-SNAPSHOT"
-val msgpackVersion = "0.1.0-SNAPSHOT"
+val taskVersion = "0.4.0-SNAPSHOT"
+val msgpackVersion = "0.4.0-SNAPSHOT"
 
 lazy val root = project.in(file("."))
   .settings(allSettings)
