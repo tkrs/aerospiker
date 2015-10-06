@@ -59,13 +59,15 @@ class AsyncClient(policy: ClientPolicy, hosts: Host*) {
    */
   implicit val asyncBatchPolicyDefault: BatchPolicy = policy.asyncBatchPolicyDefault
 
+  def close() = cluster.close()
+
 }
 
 object AsyncCommandExecutor {
   def apply(client: AsyncClient) = new AsyncCommandExecutor(client)
 }
 
-class AsyncCommandExecutor(client: AsyncClient) {
+class AsyncCommandExecutor(val client: AsyncClient) {
   import client._
 
   /**
@@ -333,6 +335,8 @@ class AsyncCommandExecutor(client: AsyncClient) {
   //    policy: QueryPolicy = asyncQueryPolicyDefault
   //  ) =
   //    new AsyncQueryExecutor(cluster, policy, listener, statement)
+
+  def close() = client.close()
 
 }
 /*
