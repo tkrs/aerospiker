@@ -162,18 +162,21 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
 
   def get[R](a: String)(
     implicit
-    decoder: Decoder[Map[String, R]]
+    decoder: Decoder[Map[String, Map[String, R]]]
   ): Task[NoSuchKey Xor Option[R]] = {
     val t = Task.async[Option[R]] { register =>
-      command.execute[Seq[String], Map[String, R]](
-        Some(new ExecuteListener[Map[String, R]] {
-          override def onFailure(e: AerospikeException): Unit = register(-\/(e))
-          override def onSuccess(key: Key, a: Option[Record[Map[String, R]]]): Unit = {
-            val o = a.collect {
+      command.execute[Seq[String], Map[String, Map[String, R]]](
+        Some(new ExecuteListener[Map[String, Map[String, R]]] {
+          override def onFailure(e: AerospikeException): Unit = {
+            register(-\/(e))
+          }
+          override def onSuccess(key: Key, rec: Option[Record[Map[String, Map[String, R]]]]): Unit = {
+            val o = rec.collect {
               case Record(Some(x), _, _) => x
             }
             val x = o getOrElse Map.empty
-            register(\/-(x.get("SUCCESS")))
+            val v = x.get("SUCCESS") flatMap (_ get a)
+            register(\/-(v))
           }
         }),
         key_,

@@ -53,7 +53,7 @@ final class AsyncExecute[A, R](
     begin()
     var fieldCount: Int = estimateKeySize(policy, key)
     val doc = args.asJson
-    logger.debug(doc.pretty(Printer.noSpaces))
+    logger.trace(doc.pretty(Printer.noSpaces))
     val argBytes: Array[Byte] = JsonPacker.pack(doc)
     fieldCount += estimateUdfSize(packageName, functionName, argBytes)
     sizeBuffer()
