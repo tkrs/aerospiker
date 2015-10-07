@@ -10,10 +10,10 @@ import shapeless._
 
 sealed trait Operation
 
-sealed trait DBError extends Exception
-case class PutError(key: String) extends DBError
-case class DeleteError(key: String) extends DBError
-case class NoSuchKey(key: String) extends DBError
+sealed abstract class DBError(cause: Throwable = null) extends Exception(cause)
+case class PutError(key: String, cause: Throwable = null) extends DBError(cause)
+case class DeleteError(key: String, cause: Throwable = null) extends DBError(cause)
+case class NoSuchKey(key: String, cause: Throwable = null) extends DBError(cause)
 
 abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with LazyLogging {
 
@@ -65,7 +65,7 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
       )
     }
     t.attempt.flatMap {
-      case -\/(e) => Task(Xor.left(PutError(key)))
+      case -\/(e) => Task(Xor.left(PutError(key, e)))
       case \/-(v) => Task(Xor.right(key))
     }
   }
@@ -113,7 +113,7 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
       )
     }
     t.attempt.flatMap {
-      case -\/(e) => Task(Xor.left(DeleteError(key)))
+      case -\/(e) => Task(Xor.left(DeleteError(key, e)))
       case \/-(v) => Task(Xor.right(v))
     }
   }
@@ -184,7 +184,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
       )
     }
     t.attempt.flatMap {
-      case -\/(e) => Task(Xor.left(NoSuchKey(a)))
+      case -\/(e) => Task(Xor.left(NoSuchKey(a, e)))
       case \/-(v) => Task(Xor.right(v))
     }
   }
@@ -223,7 +223,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
       }
     }
     t.attempt.flatMap {
-      case -\/(e) => Task(Xor.left(PutError(m.toString)))
+      case -\/(e) => Task(Xor.left(PutError(m.toString, e)))
       case \/-(v) => Task(Xor.right(v))
     }
   }
@@ -317,7 +317,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
       )
     }
     t.attempt.flatMap {
-      case -\/(e) => Task(Xor.left(DeleteError(name.toString)))
+      case -\/(e) => Task(Xor.left(DeleteError(name.toString, e)))
       case \/-(v) => Task(Xor.right(v))
     }
   }
@@ -350,7 +350,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
       )
     }
     t.attempt.flatMap {
-      case -\/(e) => Task(Xor.left(DeleteError(binName.toString)))
+      case -\/(e) => Task(Xor.left(DeleteError(binName.toString, e)))
       case \/-(v) => Task(Xor.right(v))
     }
   }
