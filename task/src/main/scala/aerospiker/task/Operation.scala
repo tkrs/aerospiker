@@ -156,8 +156,6 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
   protected def key: String
   protected def binName: String
 
-  private[this] val key_ = Key(namespace, setName, key)
-
   private[this] val PackageName = "lmap"
 
   def get[R](a: String)(
@@ -179,7 +177,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
             register(\/-(v))
           }
         }),
-        key_,
+        Key(namespace, setName, key),
         PackageName,
         "get",
         binName :: a :: Nil
@@ -213,7 +211,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
                 register(-\/(new AerospikeException("Invalid UDF return value")))
             }
           }),
-          key_,
+          Key(namespace, setName, key),
           PackageName,
           "put_all",
           binName :: m :: HNil
@@ -251,7 +249,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
               register(-\/(new AerospikeException("Invalid UDF return value")))
           }
         }),
-        key_,
+        Key(namespace, setName, key),
         PackageName,
         "put",
         binName :: name :: value :: HNil
@@ -279,7 +277,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
             register(\/-(x.get("SUCCESS")))
           }
         }),
-        key_,
+        Key(namespace, setName, key),
         PackageName,
         "scan",
         binName :: Nil
@@ -312,7 +310,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
               register(-\/(new AerospikeException("Invalid UDF return value")))
           }
         }),
-        key_,
+        Key(namespace, setName, key),
         PackageName,
         "remove",
         binName :: name :: HNil
@@ -345,7 +343,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
               register(-\/(new AerospikeException("Invalid UDF return value")))
           }
         }),
-        key_,
+        Key(namespace, setName, key),
         PackageName,
         "destroy",
         binName :: HNil
