@@ -37,7 +37,6 @@ final class AsyncWrite[T](
     val start = System.currentTimeMillis()
     val buffer = setWrite(policy, operation, key, bins)
     val end = System.currentTimeMillis()
-    logger.debug(s"${end - start} ms")
 
     sizeBuffer()
     System.arraycopy(buffer, 0, dataBuffer, 0, buffer.length)
@@ -67,10 +66,8 @@ final class AsyncWrite[T](
     val byteBuffer: ListBuffer[Byte] = ListBuffer.empty
 
     val json = bins.asJson
-    logger.debug(json.pretty(Printer.noSpaces))
     val jsonObjs = json.asObject.getOrElse(JsonObject.empty).toList
 
-    logger.debug(key.toString)
     val fields = Seq(
       writeField(key.namespace, FieldType.NAMESPACE, 0, true),
       writeField(key.setName, FieldType.TABLE, 0, true),
@@ -82,14 +79,10 @@ final class AsyncWrite[T](
       Header(headerLength = C.MSG_REMAINING_HEADER_SIZE, writeAttr = C.INFO2_WRITE, fieldCount = fields.size, operationCount = jsonObjs.size)
     )
 
-    logger.debug(header.toString)
-
     byteBuffer ++= header.getBytes
-    logger.debug(s"byteBuffer size after add header => ${byteBuffer.size}")
 
     // Write key into buffer.
     byteBuffer ++= fields.flatten
-    logger.debug(s"byteBuffer size after add fileds => ${byteBuffer.size}")
 
     val values = jsonObjs.foreach {
       case (k: String, v: Json) =>
@@ -103,11 +96,9 @@ final class AsyncWrite[T](
         byteBuffer ++= nameBytes
         byteBuffer ++= valueBytes
     }
-    logger.debug(s"bytBuffer size after add values => ${byteBuffer.size}")
 
     val size: Long = byteBuffer.size | (C.CL_MSG_VERSION << 56) | (C.AS_MSG_TYPE << 48)
     byteBuffer prependAll Buffer.longToBytes(size)
-    logger.debug(s"total byteBuffer size => ${byteBuffer.size}")
 
     byteBuffer.toArray
   }
@@ -158,14 +149,11 @@ final class AsyncWrite[T](
     if (!send) None
     else {
       val (fieldBytes, fieldLength) = Buffer.stringToUtf8(str)
-      logger.debug(fieldLength.toString)
       val lenBytes = Buffer.intToBytes(fieldLength + 1 + add)
       val b = lenBytes ++ Array(typ.toByte)
       if (typ == FieldType.KEY) {
-        logger.debug(s"writeField => ${b.length}")
         Some(b ++ Array(ParticleType.STRING.toByte) ++ fieldBytes)
       } else {
-        logger.debug(s"writeField => ${b.length}")
         Some(b ++ fieldBytes)
       }
     }
@@ -176,7 +164,6 @@ final class AsyncWrite[T](
     else {
       val lenBytes = Buffer.intToBytes(bytes.length + 1 + add)
       val b = lenBytes ++ Array(typ.toByte) ++ bytes
-      logger.debug(s"writeField => ${b.length}")
       Some(b)
     }
 

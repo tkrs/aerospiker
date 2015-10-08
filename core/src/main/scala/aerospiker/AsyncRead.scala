@@ -39,7 +39,7 @@ class AsyncRead[T](
     val start = System.currentTimeMillis()
     setRead(policy, key, if (binNames.isEmpty) null else binNames.toArray)
     val end = System.currentTimeMillis()
-    logger.debug(s"${end - start} ms")
+    logger.trace(s"${end - start} ms")
   }
 
   def getNode: AsyncNode = cluster.getReadNode(partition, policy.replica).asInstanceOf[AsyncNode]
@@ -49,7 +49,7 @@ class AsyncRead[T](
     if (receiveSize > dataBuffer.length) {
       dataBuffer = ThreadLocalData.resizeBuffer(receiveSize)
     }
-    logger.debug(s"parseResult start :: dataOffset => [$dataOffset], receiveSize => [$receiveSize]")
+    logger.trace(s"parseResult start :: dataOffset => [$dataOffset], receiveSize => [$receiveSize]")
 
     // Copy entire message to dataBuffer.
     byteBuffer.position(0)
@@ -61,7 +61,7 @@ class AsyncRead[T](
     val fieldCount = Buffer.bytesToShort(dataBuffer.slice(18, 20))
     val opCount = Buffer.bytesToShort(dataBuffer.slice(20, 22))
     dataOffset = Command.MSG_REMAINING_HEADER_SIZE
-    logger.debug(s"resultCode[$resultCode] generation[$generation] expiration[$expiration] fieldCount[$fieldCount] opCount[$opCount]")
+    logger.trace(s"resultCode[$resultCode] generation[$generation] expiration[$expiration] fieldCount[$fieldCount] opCount[$opCount]")
 
     if (resultCode == 0) {
       if (opCount == 0) {
@@ -91,26 +91,26 @@ class AsyncRead[T](
     }
     val bins: ListBuffer[(String, Json)] = ListBuffer.empty
     for (i <- 0 until opCount) {
-      logger.debug(s"dataOffset[$dataOffset]-------------------------------------------")
+      logger.trace(s"dataOffset[$dataOffset]-------------------------------------------")
       val opSize = Buffer.bytesToInt(dataBuffer.slice(dataOffset, dataOffset + 4))
-      logger.debug(s"opSize[$opSize]")
+      logger.trace(s"opSize[$opSize]")
       val particleType = dataBuffer(dataOffset + 5).toInt
-      logger.debug(s"particleType[$particleType]")
+      logger.trace(s"particleType[$particleType]")
       val nameSize = dataBuffer(dataOffset + 7).toInt
-      logger.debug(s"nameSize[$nameSize]")
+      logger.trace(s"nameSize[$nameSize]")
       // val name = Buffer.utf8ToString(dataBuffer, dataOffset + 8, nameSize)
       val name = new String(dataBuffer.slice(dataOffset + 8, dataOffset + 8 + nameSize), UTF_8)
-      logger.debug(s"name[$name]")
+      logger.trace(s"name[$name]")
       dataOffset += 4 + 4 + nameSize
       val particleBytesSize = opSize - (4 + nameSize)
-      logger.debug(s"particleBytesSize[$particleBytesSize]")
+      logger.trace(s"particleBytesSize[$particleBytesSize]")
       val result = Buffer.bytesToParticle(particleType, dataBuffer.slice(dataOffset, dataOffset + particleBytesSize))
-      logger.debug(s"result[$result]")
+      logger.trace(s"result[$result]")
       bins += (name -> result)
       dataOffset += particleBytesSize
     }
     val doc = Json.obj(bins: _*)
-    logger.debug(doc.pretty(Printer.noSpaces))
+    logger.trace(doc.pretty(Printer.noSpaces))
     doc.as[T] match {
       case Left(e) => throw new Parse(e.getMessage())
       case Right(v) => Record(Some(v), generation, expiration)
