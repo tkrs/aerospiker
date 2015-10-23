@@ -20,8 +20,6 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
   import scalaz.concurrent.Task
   import scalaz.{ -\/, \/- }
 
-  implicit val nelSemigroup: Semigroup[NEL[Throwable]] = SemigroupK[NEL].algebra[Throwable]
-
   protected def namespace: String
   protected def setName: String
 
@@ -71,11 +69,11 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
   }
 
   def puts[A](kvs: Map[String, A])(implicit encoder: Encoder[A]): Task[Seq[Throwable Xor String]] = {
-    Task.gatherUnordered {
+    Task.gatherUnordered({
       kvs map {
         case (k, v) => put(k, v)
       } toSeq
-    }
+    }, true)
   }
 
   def all[A](binNames: String*)(
@@ -119,14 +117,14 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
   }
 
   def deletes(keys: Seq[String]): Task[Seq[DeleteError Xor Boolean]] = {
-    Task.gatherUnordered {
+    Task.gatherUnordered({
       keys map { k =>
         delete(k) map {
           case Left(e) => Xor.left(e)
           case l @ Right(v) => l
         }
       }
-    }
+    }, true)
   }
 
   def exists(key: Key): Task[Throwable Xor Boolean] = {
@@ -218,7 +216,6 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
         )
       } catch {
         case e: Throwable =>
-          logger.error("puts", e)
           throw e
       }
     }
