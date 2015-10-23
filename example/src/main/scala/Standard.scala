@@ -76,8 +76,9 @@ object Standard extends App with LazyLogging {
     case Left(e) => e.printStackTrace()
   }
 
-  val m = mutable.Map.empty[String, User]
-  (1 to 10000) map (_ -> u1) foreach (i => m += i.toString -> u1)
+  val m = mutable.Map.empty[String, Map[String, User]]
+  (1 to 10000) foreach (i => m += i.toString -> Map("a" -> u1))
+  m("5000") = Map("123456789012345" -> u1)
 
   task.puts(m.toMap).run.foreach {
     case Right(v) => logger.info(s"put $v")
