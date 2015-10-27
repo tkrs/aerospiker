@@ -1,7 +1,3 @@
-val coreVersion = "0.4.0-SNAPSHOT"
-val taskVersion = "0.4.0-SNAPSHOT"
-val msgpackVersion = "0.4.0-SNAPSHOT"
-
 lazy val root = project.in(file("."))
   .settings(allSettings)
   .settings(noPublishSettings)
@@ -85,8 +81,7 @@ lazy val core = project.in(file("core"))
   .settings(
     description := "aerospiker core",
     moduleName := "aerospiker-core",
-    name := "core",
-    version := coreVersion
+    name := "core"
   )
   .settings(allSettings: _*)
   .dependsOn(msgpack)
@@ -95,8 +90,7 @@ lazy val task = project.in(file("task"))
   .settings(
     description := "aerospiker task",
     moduleName := "aerospiker-task",
-    name := "task",
-    version := taskVersion
+    name := "task"
   )
   .settings(allSettings: _*)
   .settings(
@@ -111,8 +105,7 @@ lazy val msgpack = project.in(file("msgpack"))
   .settings(
     description := "aerospiker msgpack",
     moduleName := "aerospiker-msgpack",
-    name := "msgpack",
-    version := msgpackVersion
+    name := "msgpack"
   )
   .settings(allSettings: _*)
 
