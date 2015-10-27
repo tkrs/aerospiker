@@ -3,6 +3,8 @@ import cats.data.Xor._
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
 
+import scala.collection.mutable
+
 object Standard extends App with LazyLogging {
 
   import aerospiker._
@@ -11,7 +13,7 @@ object Standard extends App with LazyLogging {
   val writePolicy = WritePolicy(sendKey = true, timeout = 3000, maxRetries = 5)
   implicit val clientPolicy = ClientPolicy(writePolicyDefault = writePolicy)
 
-  val client = AsyncClient(Host("192.168.59.103", 3000))
+  val client = AsyncClient(Host("192.168.99.100", 3000))
   logger.info(s"connected => ${client.cluster.isConnected}")
   for (node <- client.cluster.getNodes) {
     logger.info(node.getHost.toString)
@@ -74,8 +76,17 @@ object Standard extends App with LazyLogging {
     case Left(e) => e.printStackTrace()
   }
 
-  task.puts(Map(key1 -> u3, key2 -> u1, key3 -> u2)).run.foreach {
+  val m = mutable.Map.empty[String, Map[String, User]]
+  (1 to 10000) foreach (i => m += i.toString -> Map("a" -> u1))
+  m("5000") = Map("123456789012345" -> u1)
+
+  task.puts(m.toMap).run.foreach {
     case Right(v) => logger.info(s"put $v")
+    case Left(e) => e.printStackTrace()
+  }
+
+  task.deletes(m.keys.toSeq).run.foreach {
+    case Right(v) => logger.info(s"delete $v")
     case Left(e) => e.printStackTrace()
   }
 
