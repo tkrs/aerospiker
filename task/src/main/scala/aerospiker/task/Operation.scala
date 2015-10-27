@@ -1,12 +1,15 @@
 package aerospiker.task
 
+import java.util.concurrent.{ ConcurrentLinkedQueue, CountDownLatch }
+
 import aerospiker._
-import cats.data.{ NonEmptyList => NEL, Xor }, Xor._, cats.std.all._
-import cats.{ Semigroup, SemigroupK }
+import cats.data.Xor, Xor._
 import com.aerospike.client.AerospikeException
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.{ Decoder, Encoder }
 import shapeless._
+
+import scala.collection.JavaConversions._
 
 sealed trait Operation
 
@@ -19,8 +22,6 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
 
   import scalaz.concurrent.Task
   import scalaz.{ -\/, \/- }
-
-  implicit val nelSemigroup: Semigroup[NEL[Throwable]] = SemigroupK[NEL].algebra[Throwable]
 
   protected def namespace: String
   protected def setName: String
@@ -53,7 +54,7 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
   def put[A](key: String, bins: A)(
     implicit
     encoder: Encoder[A]
-  ): Task[Throwable Xor String] = {
+  ): Task[PutError Xor String] = {
     val t = Task.async[Unit] { register =>
       command.put[A](
         Some(new WriteListener {
@@ -70,12 +71,27 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
     }
   }
 
-  def puts[A](kvs: Map[String, A])(implicit encoder: Encoder[A]): Task[Seq[Throwable Xor String]] = {
-    Task.gatherUnordered {
-      kvs map {
-        case (k, v) => put(k, v)
-      } toSeq
+  def puts[A](kvs: Map[String, A])(implicit encoder: Encoder[A]): Task[Seq[PutError Xor String]] = Task.delay {
+    val latch = new CountDownLatch(kvs.size)
+    val ret = new ConcurrentLinkedQueue[PutError Xor String]
+    kvs.foreach {
+      case (k, v) =>
+        put(k, v) runAsync {
+          case -\/(e) =>
+            ret.add(Xor.left(PutError(k, e)))
+            latch.countDown()
+          case \/-(xor) => xor match {
+            case Left(e) =>
+              ret.add(Xor.left(e))
+              latch.countDown()
+            case l @ Right(_) =>
+              ret.add(l)
+              latch.countDown()
+          }
+        }
     }
+    latch.await()
+    ret.toSeq
   }
 
   def all[A](binNames: String*)(
@@ -118,15 +134,26 @@ abstract class Aerospike(command: AsyncCommandExecutor) extends Operation with L
     }
   }
 
-  def deletes(keys: Seq[String]): Task[Seq[DeleteError Xor Boolean]] = {
-    Task.gatherUnordered {
-      keys map { k =>
-        delete(k) map {
-          case Left(e) => Xor.left(e)
-          case l @ Right(v) => l
+  def deletes(keys: Seq[String]): Task[Seq[DeleteError Xor Boolean]] = Task delay {
+    val latch = new CountDownLatch(keys.size)
+    val ret = new ConcurrentLinkedQueue[DeleteError Xor Boolean]
+    keys foreach { key =>
+      delete(key) runAsync {
+        case -\/(e) =>
+          ret.add(Xor.left(DeleteError(key, e)))
+          latch.countDown()
+        case \/-(xor) => xor match {
+          case Left(e) =>
+            ret.add(Xor.left(e))
+            latch.countDown()
+          case l @ Right(v) =>
+            ret.add(l)
+            latch.countDown()
         }
       }
     }
+    latch.await()
+    ret.toSeq
   }
 
   def exists(key: Key): Task[Throwable Xor Boolean] = {
@@ -217,9 +244,7 @@ abstract class AerospikeLargeMap(command: AsyncCommandExecutor, createModule: Op
           binName :: m :: HNil
         )
       } catch {
-        case e: Throwable =>
-          logger.error("puts", e)
-          throw e
+        case e: Throwable => throw e
       }
     }
     t.attempt.flatMap {
