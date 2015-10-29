@@ -1,8 +1,7 @@
-package aerospiker.msgpack.json
+package aerospiker.msgpack
 
 import java.util.UUID
 
-import aerospiker.msgpack.{ JsonUnpacker, JsonPacker }
 import cats.data.Xor
 import org.scalatest._
 import io.circe._, io.circe.jawn._
@@ -50,7 +49,7 @@ class MessagePackSpec extends FunSpec with BeforeAndAfter with BeforeAndAfterEac
 
   describe("pack/unpack") {
 
-    it("should be sames the  unpacked Json and the parsed Json")  {
+    it("should be sames the  unpacked Json and the parsed Json") {
       val doc = parse(json) match {
         case Xor.Left(e) =>
           println(e); Json.empty

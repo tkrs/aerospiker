@@ -1,10 +1,10 @@
 lazy val root = project.in(file("."))
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, task, msgpack)
+  .aggregate(core, task, msgpack, tests)
   .dependsOn(core, task, msgpack)
 
-lazy val allSettings = buildSettings ++ baseSettings ++ testSettings ++ publishSettings
+lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings
 
 lazy val buildSettings = Seq(
   organization := "com.github.tkrs",
@@ -35,18 +35,6 @@ lazy val baseSettings = Seq(
   )
 )
 
-lazy val testSettings = Seq(
-  scalacOptions ++= compilerOptions,
-  scalacOptions in (Compile, console) := compilerOptions,
-  scalacOptions in (Compile, test) := compilerOptions,
-  libraryDependencies ++= Seq(
-    "org.scalatest" %% "scalatest" % scalatestVersion
-  ),
-  resolvers ++= Seq(
-    Resolver.sonatypeRepo("releases"),
-    Resolver.sonatypeRepo("snapshots")
-  )
-)
 lazy val publishSettings = Seq(
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   homepage := Some(url("https://github.com/tkrs/aerospiker")),
@@ -135,6 +123,21 @@ lazy val example = project.in(file("example"))
   )
   .dependsOn(core, task, msgpack)
 
+lazy val tests = project.in(file("test"))
+  .settings(
+    description := "aerospiker test",
+    moduleName := "aerospiker-test",
+    name := "test"
+  )
+  .settings(allSettings: _*)
+  .settings(noPublishSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scalatest" %% "scalatest" % scalatestVersion
+    )
+  )
+  .dependsOn(core, task, msgpack)
+
 lazy val compilerOptions = Seq(
   "-deprecation",
   "-encoding", "UTF-8",
@@ -150,12 +153,6 @@ lazy val compilerOptions = Seq(
   "-Yinline-warnings",
   "-Xlint"
 )
-
-//lazy val tests = Seq(
-//  "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion,
-//  "org.scalatest" %% "scalatest" % scalatestVersion,
-//  "org.scalacheck" %% "scalacheck" % scalacheckVersion
-//) map (_ % "test")
 
 scalariformSettings
 wartremoverErrors in (Compile, compile) ++= Warts.all
