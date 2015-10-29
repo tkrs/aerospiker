@@ -1,6 +1,11 @@
 package aerospiker
+package command
 
 import java.nio.ByteBuffer
+
+import aerospiker.buffer.Buffer
+import aerospiker.data.Header
+import aerospiker.listener.WriteListener
 import com.aerospike.client.policy._
 import com.aerospike.client.{ AerospikeException, Operation }
 import com.aerospike.client.async.{ AsyncSingleCommand, AsyncCluster, AsyncNode }
@@ -9,7 +14,6 @@ import com.aerospike.client.command.{ Command => C, ParticleType, FieldType }
 import aerospiker.policy.{ Policy, WritePolicy }
 
 import aerospiker.msgpack.JsonPacker
-import com.typesafe.scalalogging.LazyLogging
 import io.circe._
 import io.circe.syntax._
 
@@ -17,7 +21,7 @@ import scala.collection.mutable.ListBuffer
 
 // TODO: improve implement
 
-final class AsyncWrite[T](
+final class Write[T](
     cluster: AsyncCluster,
     policy: WritePolicy,
     listener: Option[WriteListener],
@@ -27,7 +31,7 @@ final class AsyncWrite[T](
 )(
     implicit
     encoder: Encoder[T]
-) extends AsyncSingleCommand(cluster) with LazyLogging {
+) extends AsyncSingleCommand(cluster) {
 
   val partition = new Partition(key)
 
@@ -201,40 +205,3 @@ final class AsyncWrite[T](
     Buffer.longToBytes(java.lang.Double.doubleToLongBits(v)).toArray
   }
 }
-
-case class Header(
-    headerLength: Int = 0,
-    readAttr: Int = 0,
-    writeAttr: Int = 0,
-    infoAttr: Int = 0,
-    resultCode: Int = 0,
-    generation: Int = 0,
-    expiration: Int = 0,
-    timeOut: Int = 0,
-    fieldCount: Int = 0,
-    operationCount: Int = 0
-) {
-  def withInfoAttr(infoAttr: Int) = copy(infoAttr = infoAttr)
-  def withReadAttr(readAttr: Int) = copy(readAttr = readAttr)
-  def withWriteAttr(writeAttr: Int) = copy(writeAttr = writeAttr)
-  def withGeneration(generation: Int) = copy(generation = generation)
-  def getBytes: Seq[Byte] = {
-    // Write all header data except total size which must be written last.
-    val bytes: ListBuffer[Byte] = ListBuffer.empty
-    bytes += headerLength.toByte // Message header length.
-    bytes += readAttr.toByte
-    bytes += writeAttr.toByte
-    bytes += infoAttr.toByte
-    bytes += 0.toByte //
-    bytes += 0.toByte // clear the result code
-    bytes ++= Buffer.intToBytes(generation)
-    bytes ++= Buffer.intToBytes(expiration)
-    // Initialize timeout. It will be written later.
-    bytes ++= (0 :: 0 :: 0 :: 0 :: Nil).map(_.toByte)
-    bytes ++= Buffer.shortToBytes(fieldCount.toShort)
-    bytes ++= Buffer.shortToBytes(operationCount.toShort)
-    bytes.toSeq
-  }
-
-}
-

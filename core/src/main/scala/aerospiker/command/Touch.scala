@@ -1,13 +1,15 @@
 package aerospiker
+package command
 
 import java.nio.ByteBuffer
+
+import aerospiker.listener.WriteListener
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.async.{ AsyncCluster, AsyncNode, AsyncSingleCommand }
 import com.aerospike.client.cluster.Partition
 import com.aerospike.client.policy.{ Policy, WritePolicy }
-import com.typesafe.scalalogging.LazyLogging
 
-final class AsyncTouch(cluster: AsyncCluster, policy: WritePolicy, listener: Option[WriteListener], key: Key) extends AsyncSingleCommand(cluster) with LazyLogging {
+final class Touch(cluster: AsyncCluster, policy: WritePolicy, listener: Option[WriteListener], key: Key) extends AsyncSingleCommand(cluster) {
 
   private val partition: Partition = new Partition(key)
 

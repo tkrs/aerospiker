@@ -1,25 +1,25 @@
 package aerospiker
+package command
 
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
 
+import aerospiker.data._
+import aerospiker.buffer.Buffer
+import aerospiker.listener.RecordListener
+import cats.data.Xor._
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.AerospikeException.Parse
-import com.aerospike.client.ResultCode
+import com.aerospike.client.ResultCode._
 import com.aerospike.client.async.{ AsyncNode, AsyncCluster }
-
 import com.aerospike.client.cluster.Partition
 import com.aerospike.client.command.Command
 import com.aerospike.client.policy.Policy
 import com.aerospike.client.util.ThreadLocalData
-import cats.data.Xor._
-import com.typesafe.scalalogging.LazyLogging
-
 import io.circe._
-
 import scala.collection.mutable.ListBuffer
 
-class AsyncRead[T](
+class Read[T](
     cluster: AsyncCluster,
     policy: Policy,
     listener: Option[RecordListener[T]],
@@ -28,7 +28,7 @@ class AsyncRead[T](
 )(
     implicit
     decoder: Decoder[T]
-) extends com.aerospike.client.async.AsyncSingleCommand(cluster) with LazyLogging {
+) extends com.aerospike.client.async.AsyncSingleCommand(cluster) {
 
   val partition = new Partition(key)
   var record: Option[Record[T]] = None
@@ -39,7 +39,6 @@ class AsyncRead[T](
     val start = System.currentTimeMillis()
     setRead(policy, key, if (binNames.isEmpty) null else binNames.toArray)
     val end = System.currentTimeMillis()
-    logger.trace(s"${end - start} ms")
   }
 
   def getNode: AsyncNode = cluster.getReadNode(partition, policy.replica).asInstanceOf[AsyncNode]
@@ -49,7 +48,6 @@ class AsyncRead[T](
     if (receiveSize > dataBuffer.length) {
       dataBuffer = ThreadLocalData.resizeBuffer(receiveSize)
     }
-    logger.trace(s"parseResult start :: dataOffset => [$dataOffset], receiveSize => [$receiveSize]")
 
     // Copy entire message to dataBuffer.
     byteBuffer.position(0)
@@ -61,7 +59,6 @@ class AsyncRead[T](
     val fieldCount = Buffer.bytesToShort(dataBuffer.slice(18, 20))
     val opCount = Buffer.bytesToShort(dataBuffer.slice(20, 22))
     dataOffset = Command.MSG_REMAINING_HEADER_SIZE
-    logger.trace(s"resultCode[$resultCode] generation[$generation] expiration[$expiration] fieldCount[$fieldCount] opCount[$opCount]")
 
     if (resultCode == 0) {
       if (opCount == 0) {
@@ -71,7 +68,7 @@ class AsyncRead[T](
         record = Some(parseRecord(opCount.toInt, fieldCount.toInt, generation, expiration))
       }
     } else {
-      if (resultCode == ResultCode.KEY_NOT_FOUND_ERROR) {
+      if (resultCode == KEY_NOT_FOUND_ERROR) {
         record = None
       } else {
         throw new AerospikeException(resultCode)
@@ -91,26 +88,18 @@ class AsyncRead[T](
     }
     val bins: ListBuffer[(String, Json)] = ListBuffer.empty
     for (i <- 0 until opCount) {
-      logger.trace(s"dataOffset[$dataOffset]-------------------------------------------")
       val opSize = Buffer.bytesToInt(dataBuffer.slice(dataOffset, dataOffset + 4))
-      logger.trace(s"opSize[$opSize]")
       val particleType = dataBuffer(dataOffset + 5).toInt
-      logger.trace(s"particleType[$particleType]")
       val nameSize = dataBuffer(dataOffset + 7).toInt
-      logger.trace(s"nameSize[$nameSize]")
       // val name = Buffer.utf8ToString(dataBuffer, dataOffset + 8, nameSize)
       val name = new String(dataBuffer.slice(dataOffset + 8, dataOffset + 8 + nameSize), UTF_8)
-      logger.trace(s"name[$name]")
       dataOffset += 4 + 4 + nameSize
       val particleBytesSize = opSize - (4 + nameSize)
-      logger.trace(s"particleBytesSize[$particleBytesSize]")
       val result = Buffer.bytesToParticle(particleType, dataBuffer.slice(dataOffset, dataOffset + particleBytesSize))
-      logger.trace(s"result[$result]")
       bins += (name -> result)
       dataOffset += particleBytesSize
     }
     val doc = Json.obj(bins: _*)
-    logger.trace(doc.pretty(Printer.noSpaces))
     doc.as[T] match {
       case Left(e) => throw new Parse(e.getMessage())
       case Right(v) => Record(Some(v), generation, expiration)

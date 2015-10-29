@@ -1,4 +1,5 @@
 package aerospiker
+package buffer
 
 import java.io.UnsupportedEncodingException
 import java.nio.charset.StandardCharsets.UTF_8
@@ -6,10 +7,8 @@ import java.nio.charset.StandardCharsets.UTF_8
 import aerospiker.msgpack.JsonUnpacker
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.command.{ ParticleType => PT }
-import com.typesafe.scalalogging.LazyLogging
-import io.circe.{ ParsingFailure, Json }
-
-import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
+import io.circe.Json
+import scala.collection.mutable.ListBuffer
 
 object Buffer {
 
@@ -36,7 +35,7 @@ object Buffer {
     val bytes = new Array[Byte](buf.length)
     System.arraycopy(buf, 0, bytes, 0, buf.length)
     val n = new String(bytes, "UTF8").trim
-    var big: BigDecimal = if (n.isEmpty) BigDecimal(0) else BigDecimal(n)
+    val big = if (n.isEmpty) BigDecimal(0) else BigDecimal(n)
     if (negative) BigDecimal(0) - big else big
   }
 
@@ -52,36 +51,31 @@ object Buffer {
   def bytesToDouble(buf: Array[Byte]): Double =
     java.lang.Double.longBitsToDouble(bytesToLong(buf))
 
-  def longToBytes(v: Long): Seq[Byte] = {
-    ((v >>> 56) :: (v >>> 48) :: (v >>> 40) :: (v >>> 32) :: (v >>> 24) :: (v >>> 16) :: (v >>> 8) :: (v >>> 0) :: Nil).map(_.toByte)
-  }
+  def longToBytes(v: Long): Seq[Byte] =
+    Seq(v >>> 56, v >>> 48, v >>> 40, v >>> 32, v >>> 24, v >>> 16, v >>> 8, v >>> 0).map(_.toByte)
 
-  def intToBytes(v: Int): Seq[Byte] = {
+  def intToBytes(v: Int): Seq[Byte] =
+    Seq(v >>> 24, v >>> 16, v >>> 8, v >>> 0).map(_.toByte)
 
-    ((v >>> 24) :: (v >>> 16) :: (v >>> 8) :: (v >>> 0) :: Nil).map(_.toByte)
-  }
-
-  def shortToBytes(v: Short): Seq[Byte] = {
-    ((v >>> 8) :: (v >>> 0) :: Nil).map(_.toByte)
-  }
+  def shortToBytes(v: Short): Seq[Byte] =
+    Seq(v >>> 8, v >>> 0).map(_.toByte)
 
   def stringToUtf8(s: String): (Array[Byte], Int) = {
     if (s == null) (Array.empty, 0)
     else {
       val length = s.length
       val buf: ListBuffer[Byte] = ListBuffer.empty
-
       for (i <- 0 until length) {
         val c = s.charAt(i)
         if (c < 0x80) {
           buf += c.toByte
         } else if (c < 0x800) {
-          buf += (0xc0 | ((c >> 6))).toByte
+          buf += (0xc0 | (c >> 6)).toByte
           buf += (0x80 | (c & 0x3f)).toByte
         } else {
           // Encountered a different encoding other than 2-byte UTF8. Let java handle it.
           try {
-            val value = s.getBytes("UTF8")
+            val value = s.getBytes(UTF_8)
             return (value, value.length)
           } catch {
             case uee: UnsupportedEncodingException =>

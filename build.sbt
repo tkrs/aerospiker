@@ -11,7 +11,7 @@ lazy val buildSettings = Seq(
   scalaVersion := "2.11.7"
 )
 
-val aerospikeVersion = "3.1.4"
+val aerospikeVersion = "3.1.6"
 val circeVersion = "0.1.1"
 val scalazVersion = "7.1.3"
 // val scalacheckVersion = "1.12.3"
@@ -24,10 +24,10 @@ lazy val baseSettings = Seq(
   scalacOptions in (Compile, test) := compilerOptions,
   libraryDependencies ++= Seq(
     "com.aerospike" % "aerospike-client" % aerospikeVersion,
+    "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-jawn" % circeVersion,
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
+    "io.circe" %% "circe-jawn" % circeVersion
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -55,7 +55,7 @@ lazy val publishSettings = Seq(
       "scm:git:git@github.com:tkrs/aerospiker.git"
     )
   ),
-  pomExtra := (
+  pomExtra :=
     <developers>
       <developer>
         <id>tkrs</id>
@@ -68,7 +68,6 @@ lazy val publishSettings = Seq(
         <url>https://github.com/yanana</url>
       </developer>
     </developers>
-  )
 )
 
 lazy val noPublishSettings = Seq(
@@ -95,8 +94,7 @@ lazy val task = project.in(file("task"))
   .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "org.spire-math" %% "cats" % catsVersion,
-      "org.scalaz" %% "scalaz-concurrent" % scalazVersion
+      "org.spire-math" %% "cats" % catsVersion
     )
   )
   .dependsOn(core)
@@ -119,6 +117,7 @@ lazy val example = project.in(file("example"))
   .settings(noPublishSettings)
   .settings(
     libraryDependencies ++= Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
       "org.slf4j" % "slf4j-simple" % "1.7.12"
     )
   )

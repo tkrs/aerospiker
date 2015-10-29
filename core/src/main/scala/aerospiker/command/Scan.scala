@@ -1,20 +1,20 @@
 package aerospiker
+package command
 
 // TODO: hate!
 
+import aerospiker.data._
+import aerospiker.buffer.Buffer
+import aerospiker.listener.RecordSequenceListener
 import aerospiker.policy.{ Policy, ScanPolicy }
-import com.aerospike.client.{ Operation, AerospikeException }
+import cats.data.Xor._
+import com.aerospike.client.AerospikeException
 import com.aerospike.client.AerospikeException.Parse
 import com.aerospike.client.async.{ AsyncNode, AsyncCluster, AsyncMultiExecutor, AsyncMultiCommand }
-import com.aerospike.client.command.{ Command, FieldType }
-import com.typesafe.scalalogging.LazyLogging
-import io.circe.{ Printer, Decoder, Json }
-
-import cats.data.Xor._
-
+import io.circe._
 import scala.collection.mutable.ListBuffer
 
-final class AsyncScan[T](
+final class Scan[T](
     parent: AsyncMultiExecutor,
     cluster: AsyncCluster,
     node: AsyncNode,
@@ -27,7 +27,7 @@ final class AsyncScan[T](
 )(
     implicit
     decoder: Decoder[T]
-) extends AsyncMultiCommand(parent, cluster, node, true) with LazyLogging {
+) extends AsyncMultiCommand(parent, cluster, node, true) {
 
   def getPolicy: Policy = policy
 
