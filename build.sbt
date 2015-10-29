@@ -4,7 +4,7 @@ lazy val root = project.in(file("."))
   .aggregate(core, task, msgpack)
   .dependsOn(core, task, msgpack)
 
-lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings
+lazy val allSettings = buildSettings ++ baseSettings ++ testSettings ++ publishSettings
 
 lazy val buildSettings = Seq(
   organization := "com.github.tkrs",
@@ -15,7 +15,7 @@ val aerospikeVersion = "3.1.6"
 val circeVersion = "0.1.1"
 val scalazVersion = "7.1.3"
 // val scalacheckVersion = "1.12.3"
-// val scalatestVersion = "2.2.5"
+val scalatestVersion = "2.2.5"
 val catsVersion = "0.1.2"
 
 lazy val baseSettings = Seq(
@@ -35,6 +35,18 @@ lazy val baseSettings = Seq(
   )
 )
 
+lazy val testSettings = Seq(
+  scalacOptions ++= compilerOptions,
+  scalacOptions in (Compile, console) := compilerOptions,
+  scalacOptions in (Compile, test) := compilerOptions,
+  libraryDependencies ++= Seq(
+    "org.scalatest" %% "scalatest" % scalatestVersion
+  ),
+  resolvers ++= Seq(
+    Resolver.sonatypeRepo("releases"),
+    Resolver.sonatypeRepo("snapshots")
+  )
+)
 lazy val publishSettings = Seq(
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   homepage := Some(url("https://github.com/tkrs/aerospiker")),
