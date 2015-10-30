@@ -5,9 +5,6 @@ import aerospiker.policy.{ ClientPolicy, WritePolicy }
 import aerospiker.task.{ Aerospike, Settings }
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
-import org.openjdk.jmh.annotations.OutputTimeUnit
-
-import scala.concurrent.duration.Duration
 
 object Standard extends App with LazyLogging {
 
@@ -24,8 +21,6 @@ object Standard extends App with LazyLogging {
   val settings = Settings("test", "account", "user")
 
   import Aerospike._
-
-  println(all[User](settings).run(client).attemptRunFor(Duration(1000, TimeUnit.MILLISECONDS)))
 
   val action = for {
     _ <- put(settings, u1)
