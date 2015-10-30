@@ -61,17 +61,19 @@ object Aerospike {
   }
 
   def puts[U](settings: Settings, kvs: Map[String, U])(implicit encoder: Encoder[U]) = withClient { client =>
-    Task.delay {
-      val latch = new CountDownLatch(kvs.size)
-      val list = ListBuffer.empty[Throwable \/ String]
-      kvs foreach {
-        case (k, v) => putExec(settings.copy(key = k), v, client) runAsync { r =>
-          list += r.map(_ => k)
-          latch.countDown()
+    Task.fork {
+      Task.delay {
+        val latch = new CountDownLatch(kvs.size)
+        val list = ListBuffer.empty[Throwable \/ String]
+        kvs foreach {
+          case (k, v) => putExec(settings.copy(key = k), v, client) runAsync { r =>
+            list += r.map(_ => k)
+            latch.countDown()
+          }
         }
+        latch.await()
+        list.toSeq
       }
-      latch.await()
-      list.toSeq
     }
   }
 
@@ -92,17 +94,19 @@ object Aerospike {
   }
 
   def deletes(settings: Settings, keys: Seq[String]) = withClient { client =>
-    Task.delay {
-      val latch = new CountDownLatch(keys.size)
-      val list = ListBuffer.empty[Throwable \/ String]
-      keys foreach { k =>
-        deleteExec(settings.copy(key = k), client) runAsync { r =>
-          list += r.map(_ => k)
-          latch.countDown()
+    Task.fork {
+      Task.now {
+        val latch = new CountDownLatch(keys.size)
+        val list = ListBuffer.empty[Throwable \/ String]
+        keys foreach { k =>
+          deleteExec(settings.copy(key = k), client) runAsync { r =>
+            list += r.map(_ => k)
+            latch.countDown()
+          }
         }
+        latch.await()
+        list.toSeq
       }
-      latch.await()
-      list.toSeq
     }
   }
 

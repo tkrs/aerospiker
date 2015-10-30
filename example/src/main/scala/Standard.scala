@@ -1,8 +1,13 @@
+import java.util.concurrent.TimeUnit
+
 import aerospiker._
-import aerospiker.policy.{ WritePolicy, ClientPolicy }
-import aerospiker.task.{ Settings, Aerospike }
+import aerospiker.policy.{ ClientPolicy, WritePolicy }
+import aerospiker.task.{ Aerospike, Settings }
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
+import org.openjdk.jmh.annotations.OutputTimeUnit
+
+import scala.concurrent.duration.Duration
 
 object Standard extends App with LazyLogging {
 
@@ -16,13 +21,24 @@ object Standard extends App with LazyLogging {
 
   val client = AerospikeClient(clientPolicy, Host("192.168.99.100", 3000))
 
-  val settings = Settings("test", "user", "u1")
+  val settings = Settings("test", "account", "user")
+
+  import Aerospike._
+
+  println(all[User](settings).run(client).attemptRunFor(Duration(1000, TimeUnit.MILLISECONDS)))
 
   val action = for {
-    put <- Aerospike.put(settings, u1)
-    get <- Aerospike.get[User](settings)
-    ret <- Aerospike.delete(settings)
-  } yield ret
+    _ <- put(settings, u1)
+    get <- get[User](settings)
+    del <- delete(settings)
+    _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
+    all <- all[User](settings)
+    act <- deletes(settings, Seq(u1.name, u2.name, u3.name))
+  } yield {
+    println(s"get :: $get")
+    println(s"all :: $all")
+    act
+  }
 
   println("start")
   println(action.run(client).attemptRun)
