@@ -6,6 +6,8 @@ import aerospiker.task.{ Aerospike, Settings }
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
 
+import scalaz.concurrent.Task
+
 object Standard extends App with LazyLogging {
 
   case class User(name: String, age: Int, now: Long, bbb: Seq[Double], option: Option[String])

@@ -32,25 +32,30 @@ object AerospikeLargeMap {
   ) = withClient { client =>
     implicit val dec = Decoder[Map[String, Map[String, R]]]
     Task.async[Option[R]] { cb =>
-      execute(
-        client.cluster,
-        client.policy.asyncWritePolicyDefault,
-        Some(new ExecuteListener[Map[String, Map[String, R]]] {
-          override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
-          override def onSuccess(key: Key, rec: Option[Record[Map[String, Map[String, R]]]]): Unit = {
-            val o = rec.collect {
-              case Record(Some(x), _, _) => x
+      try {
+        execute(
+          client.cluster,
+          client.policy.asyncWritePolicyDefault,
+          Some(new ExecuteListener[Map[String, Map[String, R]]] {
+            override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+
+            override def onSuccess(key: Key, rec: Option[Record[Map[String, Map[String, R]]]]): Unit = {
+              val o = rec.collect {
+                case Record(Some(x), _, _) => x
+              }
+              val x = o getOrElse Map.empty
+              val v = x.get("SUCCESS") flatMap (_ get a)
+              cb(\/-(v))
             }
-            val x = o getOrElse Map.empty
-            val v = x.get("SUCCESS") flatMap (_ get a)
-            cb(\/-(v))
-          }
-        }),
-        Key(settings.namespace, settings.setName, settings.key),
-        PackageName,
-        "get",
-        settings.binName :: a :: Nil
-      )
+          }),
+          Key(settings.namespace, settings.setName, settings.key),
+          PackageName,
+          "get",
+          settings.binName :: a :: Nil
+        )
+      } catch {
+        case e: Throwable => -\/(GetError(settings.binName, e))
+      }
     }
   }
 
@@ -84,7 +89,7 @@ object AerospikeLargeMap {
           settings.binName :: m :: HNil
         )
       } catch {
-        case e: Throwable => cb(-\/(e))
+        case e: Throwable => cb(-\/(PutError(settings.binName, e)))
       }
     }
   }
@@ -94,29 +99,34 @@ object AerospikeLargeMap {
     encoder: Encoder[String :: String :: A :: HNil]
   ) = withClient { client =>
     Task.async[Unit] { cb =>
-      execute[String :: String :: A :: HNil, Map[String, Int]](
-        client.cluster,
-        client.policy.asyncWritePolicyDefault,
-        Some(new ExecuteListener[Map[String, Int]] {
-          override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
-          override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
-            val o = a.collect {
-              case Record(Some(x), _, _) => x
+      try {
+        execute[String :: String :: A :: HNil, Map[String, Int]](
+          client.cluster,
+          client.policy.asyncWritePolicyDefault,
+          Some(new ExecuteListener[Map[String, Int]] {
+            override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+
+            override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
+              val o = a.collect {
+                case Record(Some(x), _, _) => x
+              }
+              val x = o getOrElse Map.empty
+              if (x.contains("SUCCESS"))
+                cb(\/-({}))
+              else if (x.contains("FAILURE"))
+                cb(-\/(new AerospikeException(a.toString)))
+              else
+                cb(-\/(new AerospikeException("Invalid UDF return value")))
             }
-            val x = o getOrElse Map.empty
-            if (x.contains("SUCCESS"))
-              cb(\/-({}))
-            else if (x.contains("FAILURE"))
-              cb(-\/(new AerospikeException(a.toString)))
-            else
-              cb(-\/(new AerospikeException("Invalid UDF return value")))
-          }
-        }),
-        Key(settings.namespace, settings.setName, settings.key),
-        PackageName,
-        "put",
-        settings.binName :: name :: value :: HNil
-      )
+          }),
+          Key(settings.namespace, settings.setName, settings.key),
+          PackageName,
+          "put",
+          settings.binName :: name :: value :: HNil
+        )
+      } catch {
+        case e: Throwable => -\/(GetError(settings.binName, e))
+      }
     }
   }
 
@@ -125,24 +135,29 @@ object AerospikeLargeMap {
     decoder: Decoder[R]
   ) = withClient { client =>
     Task.async[Option[R]] { register =>
-      execute[Seq[String], Map[String, R]](
-        client.cluster,
-        client.policy.asyncWritePolicyDefault,
-        Some(new ExecuteListener[Map[String, R]] {
-          override def onFailure(e: AerospikeException): Unit = register(-\/(e))
-          override def onSuccess(key: Key, a: Option[Record[Map[String, R]]]): Unit = {
-            val o = a.collect {
-              case Record(Some(x), _, _) => x
+      try {
+        execute[Seq[String], Map[String, R]](
+          client.cluster,
+          client.policy.asyncWritePolicyDefault,
+          Some(new ExecuteListener[Map[String, R]] {
+            override def onFailure(e: AerospikeException): Unit = register(-\/(e))
+
+            override def onSuccess(key: Key, a: Option[Record[Map[String, R]]]): Unit = {
+              val o = a.collect {
+                case Record(Some(x), _, _) => x
+              }
+              val x = o getOrElse Map.empty
+              register(\/-(x.get("SUCCESS")))
             }
-            val x = o getOrElse Map.empty
-            register(\/-(x.get("SUCCESS")))
-          }
-        }),
-        Key(settings.namespace, settings.setName, settings.key),
-        PackageName,
-        "scan",
-        settings.binName :: Nil
-      )
+          }),
+          Key(settings.namespace, settings.setName, settings.key),
+          PackageName,
+          "scan",
+          settings.binName :: Nil
+        )
+      } catch {
+        case e: Throwable => -\/(GetError(settings.binName, e))
+      }
     }
   }
 
@@ -151,29 +166,34 @@ object AerospikeLargeMap {
     encoder: Encoder[String :: String :: HNil]
   ) = withClient { client =>
     Task.async[Unit] { register =>
-      execute[String :: String :: HNil, Map[String, Int]](
-        client.cluster,
-        client.policy.asyncWritePolicyDefault,
-        Some(new ExecuteListener[Map[String, Int]] {
-          override def onFailure(e: AerospikeException): Unit = register(-\/(e))
-          override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
-            val o = a.collect {
-              case Record(Some(x), _, _) => x
+      try {
+        execute[String :: String :: HNil, Map[String, Int]](
+          client.cluster,
+          client.policy.asyncWritePolicyDefault,
+          Some(new ExecuteListener[Map[String, Int]] {
+            override def onFailure(e: AerospikeException): Unit = register(-\/(e))
+
+            override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
+              val o = a.collect {
+                case Record(Some(x), _, _) => x
+              }
+              val x = o getOrElse Map.empty
+              if (x.contains("SUCCESS"))
+                register(\/-({}))
+              else if (x.contains("FAILURE"))
+                register(-\/(new AerospikeException(a.toString)))
+              else
+                register(-\/(new AerospikeException("Invalid UDF return value")))
             }
-            val x = o getOrElse Map.empty
-            if (x.contains("SUCCESS"))
-              register(\/-({}))
-            else if (x.contains("FAILURE"))
-              register(-\/(new AerospikeException(a.toString)))
-            else
-              register(-\/(new AerospikeException("Invalid UDF return value")))
-          }
-        }),
-        Key(settings.namespace, settings.setName, settings.key),
-        PackageName,
-        "remove",
-        settings.binName :: name :: HNil
-      )
+          }),
+          Key(settings.namespace, settings.setName, settings.key),
+          PackageName,
+          "remove",
+          settings.binName :: name :: HNil
+        )
+      } catch {
+        case e: Throwable => -\/(DeleteError(settings.binName, e))
+      }
     }
   }
 
@@ -182,29 +202,34 @@ object AerospikeLargeMap {
     encoder: Encoder[String :: HNil]
   ) = withClient { client =>
     Task.async[Unit] { register =>
-      execute[String :: HNil, Map[String, Int]](
-        client.cluster,
-        client.policy.asyncWritePolicyDefault,
-        Some(new ExecuteListener[Map[String, Int]] {
-          override def onFailure(e: AerospikeException): Unit = register(-\/(e))
-          override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
-            val o = a.collect {
-              case Record(Some(x), _, _) => x
+      try {
+        execute[String :: HNil, Map[String, Int]](
+          client.cluster,
+          client.policy.asyncWritePolicyDefault,
+          Some(new ExecuteListener[Map[String, Int]] {
+            override def onFailure(e: AerospikeException): Unit = register(-\/(e))
+
+            override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
+              val o = a.collect {
+                case Record(Some(x), _, _) => x
+              }
+              val x = o getOrElse Map.empty
+              if (x.contains("SUCCESS"))
+                register(\/-({}))
+              else if (x.contains("FAILURE"))
+                register(-\/(new AerospikeException(a.toString)))
+              else
+                register(-\/(new AerospikeException("Invalid UDF return value")))
             }
-            val x = o getOrElse Map.empty
-            if (x.contains("SUCCESS"))
-              register(\/-({}))
-            else if (x.contains("FAILURE"))
-              register(-\/(new AerospikeException(a.toString)))
-            else
-              register(-\/(new AerospikeException("Invalid UDF return value")))
-          }
-        }),
-        Key(settings.namespace, settings.setName, settings.key),
-        PackageName,
-        "destroy",
-        settings.binName :: HNil
-      )
+          }),
+          Key(settings.namespace, settings.setName, settings.key),
+          PackageName,
+          "destroy",
+          settings.binName :: HNil
+        )
+      } catch {
+        case e: Throwable => -\/(DeleteError(settings.binName, e))
+      }
     }
   }
 }

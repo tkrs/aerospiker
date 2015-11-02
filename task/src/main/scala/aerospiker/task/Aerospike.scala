@@ -18,42 +18,52 @@ object Aerospike {
 
   def get[U](settings: Settings, binNames: String*)(implicit decoder: Decoder[U]): Action[U] = withClient[U] { client =>
     Task.async { cb =>
-      new Read(
-        client.cluster,
-        client.policy.asyncReadPolicyDefault,
-        Some(new RecordListener[U] {
-          override def onFailure(e: AerospikeException): Unit = {
-            cb(-\/(GetError(settings.key, e)))
-          }
-          override def onSuccess(key: Key, record: Option[Record[U]]): Unit = {
-            record match {
-              case None => cb(-\/(NoSuchKey(settings.key)))
-              case Some(r) => r.bins match {
-                case None => cb(-\/(GetError(settings.key)))
-                case Some(bins) => cb(\/-(bins))
+      try {
+        new Read(
+          client.cluster,
+          client.policy.asyncReadPolicyDefault,
+          Some(new RecordListener[U] {
+            override def onFailure(e: AerospikeException): Unit = {
+              cb(-\/(GetError(settings.key, e)))
+            }
+
+            override def onSuccess(key: Key, record: Option[Record[U]]): Unit = {
+              record match {
+                case None => cb(-\/(NoSuchKey(settings.key)))
+                case Some(r) => r.bins match {
+                  case None => cb(-\/(GetError(settings.key)))
+                  case Some(bins) => cb(\/-(bins))
+                }
               }
             }
-          }
-        }),
-        Key(settings.namespace, settings.setName, settings.key),
-        binNames: _*
-      ).execute()
+          }),
+          Key(settings.namespace, settings.setName, settings.key),
+          binNames: _*
+        ).execute()
+      } catch {
+        case e: Throwable => cb(-\/(GetError(settings.key, e)))
+      }
     }
   }
 
   private[this] def putExec[U](settings: Settings, bins: U, client: AerospikeClient)(implicit encoder: Encoder[U]): Task[Unit] =
     Task.async[Unit] { cb =>
-      new Write[U](
-        client.cluster,
-        client.policy.asyncWritePolicyDefault,
-        Some(new WriteListener {
-          override def onFailure(e: AerospikeException): Unit = cb(-\/(PutError(settings.key, e)))
-          override def onSuccess(key: Key): Unit = cb(\/-({}))
-        }),
-        Key(settings.namespace, settings.setName, settings.key),
-        bins,
-        Operation.Type.WRITE
-      ).execute()
+      try {
+        new Write[U](
+          client.cluster,
+          client.policy.asyncWritePolicyDefault,
+          Some(new WriteListener {
+            override def onFailure(e: AerospikeException): Unit = cb(-\/(PutError(settings.key, e)))
+
+            override def onSuccess(key: Key): Unit = cb(\/-({}))
+          }),
+          Key(settings.namespace, settings.setName, settings.key),
+          bins,
+          Operation.Type.WRITE
+        ).execute()
+      } catch {
+        case e: Throwable => -\/(PutError(settings.key, e))
+      }
     }
 
   def put[U](settings: Settings, bins: U)(implicit encoder: Encoder[U]) = withClient[Unit] { client =>
@@ -78,15 +88,20 @@ object Aerospike {
   }
 
   private[this] def deleteExec(settings: Settings, client: AerospikeClient) = Task.async[Boolean] { cb =>
-    new Delete(
-      client.cluster,
-      client.policy.asyncWritePolicyDefault,
-      Some(new DeleteListener {
-        override def onFailure(e: AerospikeException): Unit = cb(-\/(DeleteError(settings.key, e)))
-        override def onSuccess(key: Key, exists: Boolean): Unit = cb(\/-(exists))
-      }),
-      Key(settings.namespace, settings.setName, settings.key)
-    ).execute()
+    try {
+      new Delete(
+        client.cluster,
+        client.policy.asyncWritePolicyDefault,
+        Some(new DeleteListener {
+          override def onFailure(e: AerospikeException): Unit = cb(-\/(DeleteError(settings.key, e)))
+
+          override def onSuccess(key: Key, exists: Boolean): Unit = cb(\/-(exists))
+        }),
+        Key(settings.namespace, settings.setName, settings.key)
+      ).execute()
+    } catch {
+      case e: Throwable => -\/(DeleteError(settings.key, e))
+    }
   }
 
   def delete(settings: Settings) = withClient[Boolean] { client =>
@@ -115,34 +130,49 @@ object Aerospike {
     decoder: Decoder[A]
   ) = withClient { client =>
     Task.async[Seq[(Key, Option[Record[A]])]] { cb =>
-      import scala.collection.mutable.ListBuffer
-      val buffer: ListBuffer[(Key, Option[Record[A]])] = ListBuffer.empty
-      new ScanExecutor(
-        client.cluster,
-        client.policy.asyncScanPolicyDefault,
-        Some(new RecordSequenceListener[A] {
-          def onRecord(key: Key, record: Option[Record[A]]): Unit = buffer += key -> record
-          def onFailure(e: AerospikeException): Unit = cb(-\/(e))
-          def onSuccess(): Unit = cb(\/-(buffer.toSeq))
-        }),
-        settings.namespace,
-        settings.setName,
-        binNames.toArray
-      ).execute()
+      try {
+        import scala.collection.mutable.ListBuffer
+        val buffer: ListBuffer[(Key, Option[Record[A]])] = ListBuffer.empty
+        new ScanExecutor(
+          client.cluster,
+          client.policy.asyncScanPolicyDefault,
+          Some(new RecordSequenceListener[A] {
+            def onRecord(key: Key, record: Option[Record[A]]): Unit = buffer += key -> record
+
+            def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+
+            def onSuccess(): Unit = cb(\/-(buffer.toSeq))
+          }),
+          settings.namespace,
+          settings.setName,
+          binNames.toArray
+        ).execute()
+      } catch {
+        case e: Throwable => -\/(GetError(settings.key, e))
+      }
     }
   }
 
   def exists(settings: Settings) = withClient { client =>
     Task.async[Boolean] { register =>
-      new Exists(
-        client.cluster,
-        client.policy.asyncReadPolicyDefault,
-        Some(new ExistsListener {
-          def onSuccess(key: Key, exists: Boolean): Unit = { register(\/-(exists)) }
-          def onFailure(e: AerospikeException): Unit = { register(-\/(e)) }
-        }),
-        Key(settings.namespace, settings.setName, settings.key)
-      ).execute()
+      try {
+        new Exists(
+          client.cluster,
+          client.policy.asyncReadPolicyDefault,
+          Some(new ExistsListener {
+            def onSuccess(key: Key, exists: Boolean): Unit = {
+              register(\/-(exists))
+            }
+
+            def onFailure(e: AerospikeException): Unit = {
+              register(-\/(e))
+            }
+          }),
+          Key(settings.namespace, settings.setName, settings.key)
+        ).execute()
+      } catch {
+        case e: Throwable => -\/(GetError(settings.key, e))
+      }
     }
   }
 
