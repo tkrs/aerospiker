@@ -1,12 +1,8 @@
-import java.util.concurrent.TimeUnit
-
 import aerospiker._
 import aerospiker.policy.{ ClientPolicy, WritePolicy }
 import aerospiker.task.{ Aerospike, Settings }
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
-
-import scalaz.concurrent.Task
 
 object Standard extends App with LazyLogging {
 

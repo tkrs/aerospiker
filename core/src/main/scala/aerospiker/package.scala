@@ -1,5 +1,5 @@
 import aerospiker.buffer.Buffer
-import cats.{ FlatMap, Functor }
+import cats.FlatMap
 import cats.data.ReaderT
 
 import scala.collection.mutable.ListBuffer
@@ -10,13 +10,6 @@ package object aerospiker {
   type Action[U] = ReaderT[Task, AerospikeClient, U]
 
   object Command extends Functions
-
-  //  implicit val TaskFunctor: Functor[Task] = new Functor[Task] {
-  //    override def map[A, B](fa: Task[A])(f: (A) => B): Task[B] = {
-  //      println(s"Functor :: map :: $fa")
-  //      fa.map(f)
-  //    }
-  //  }
 
   implicit val TaskFlatMap: FlatMap[Task] = new FlatMap[Task] {
     override def flatMap[A, B](fa: Task[A])(f: (A) => Task[B]): Task[B] = {
