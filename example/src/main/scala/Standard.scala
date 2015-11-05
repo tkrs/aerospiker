@@ -1,10 +1,14 @@
 import aerospiker._
 import aerospiker.policy.{ ClientPolicy, WritePolicy }
-import aerospiker.task.{ Aerospike, Settings }
-import com.typesafe.scalalogging.LazyLogging
+import aerospiker.task.Aerospike
+import aerospiker.task.syntax._
 import io.circe.generic.auto._
+import shapeless._
+import shapeless.poly.identity
 
-object Standard extends App with LazyLogging {
+import scalaz.concurrent.Task
+
+object Standard extends App {
 
   case class User(name: String, age: Int, now: Long, bbb: Seq[Double], option: Option[String])
   val u1 = User("bbb", 31, System.currentTimeMillis(), Seq(1.2, 3.4), None)
@@ -20,21 +24,44 @@ object Standard extends App with LazyLogging {
 
   import Aerospike._
 
-  val action = for {
-    _ <- put(settings, u1)
-    get <- get[User](settings)
-    del <- delete(settings)
-    _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
-    all <- all[User](settings)
-    act <- deletes(settings, Seq(u1.name, u2.name, u3.name))
-  } yield {
-    println(s"get :: $get")
-    println(s"all :: $all")
-    act
+  try {
+    val action = for {
+      _ <- put(settings, u1)
+      get <- get[User](settings)
+      del <- delete(settings)
+      _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
+      all <- all[User](settings)
+      dels <- deletes(settings, Seq(u1.name, u2.name, u3.name))
+    } yield get :: del :: all :: dels :: HNil
+
+    println("start 1")
+    println(action.run(client).attemptRun)
+  } catch {
+    case e: Throwable => println(e.getMessage)
   }
 
-  println("start")
-  println(action.run(client).attemptRun)
+  try {
+    import cats._, std.all._, syntax.all._
+
+    val action1 = for {
+      put <- put(settings, u1)
+      get <- get[User](settings)
+    } yield put :: get :: HNil
+
+    val action2 = for {
+      put <- put(settings, u2)
+      get <- get[User](settings)
+    } yield put :: get :: HNil
+
+    val t1 = Task.fork(action1.run(client))
+    val t2 = Task.fork(action2.run(client))
+
+    import scalaz.Nondeterminism
+    println("start 2")
+    println(implicitly[Nondeterminism[Task]].both(t1, t2).run)
+  } catch {
+    case e: Throwable => println(e.getMessage)
+  }
 
   client.close()
 }

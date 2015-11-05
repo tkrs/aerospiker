@@ -3,8 +3,8 @@ package command
 
 // TODO: hate!
 
-import aerospiker.data._
-import aerospiker.buffer.Buffer
+import aerospiker.Record
+import aerospiker.buffer.{ Buffer, Header }
 import aerospiker.listener.RecordSequenceListener
 import aerospiker.policy.{ Policy, ScanPolicy }
 import cats.data.Xor._

@@ -1,5 +1,4 @@
 package aerospiker
-package task
 
 final case class Settings(
   namespace: String,

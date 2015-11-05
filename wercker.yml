@@ -17,6 +17,11 @@ build:
           sbt coverage test
 
     - script:
+        name: sbt example run
+        code: |
+          sbt "example/runMain Standard" "example/runMain LargeMap"
+
+    - script:
         name: push report to codecov
         code: |
           bash <(curl -s https://codecov.io/bash)

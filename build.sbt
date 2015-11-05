@@ -12,11 +12,11 @@ lazy val buildSettings = Seq(
 )
 
 val aerospikeVersion = "3.1.6"
-val circeVersion = "0.1.1"
+val circeVersion = "0.2.0"
 val scalazVersion = "7.1.3"
 // val scalacheckVersion = "1.12.3"
 val scalatestVersion = "2.2.5"
-val catsVersion = "0.1.2"
+val catsVersion = "0.2.0"
 
 lazy val baseSettings = Seq(
   scalacOptions ++= compilerOptions,
@@ -27,7 +27,7 @@ lazy val baseSettings = Seq(
     "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-jawn" % circeVersion
+    "io.circe" %% "circe-parse" % circeVersion
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -115,6 +115,7 @@ lazy val example = project.in(file("example"))
   )
   .settings(allSettings: _*)
   .settings(noPublishSettings)
+  .settings(fork := true)
   .settings(
     libraryDependencies ++= Seq(
       "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",

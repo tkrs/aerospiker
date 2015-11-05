@@ -1,10 +1,11 @@
 import aerospiker._
+import aerospiker.task.syntax._
 import aerospiker.policy.{ ClientPolicy, WritePolicy }
-import aerospiker.task.{ AerospikeLargeMap, Settings }
-import com.typesafe.scalalogging.LazyLogging
+import aerospiker.task.AerospikeLargeMap
 import io.circe.generic.auto._
+import shapeless._, shapeless.syntax.singleton._, shapeless.record._
 
-object LargeMap extends App with LazyLogging {
+object LargeMap extends App {
 
   case class User(name: String, age: Int, now: Long, bbb: Seq[Double])
   type Users = Map[String, User]
@@ -25,12 +26,8 @@ object LargeMap extends App with LazyLogging {
     del <- delete(settings, "u1")
     _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
     all <- all[Users](settings)
-    act <- deleteBin(settings)
-  } yield {
-    println(s"get :: $get")
-    println(s"all :: $all")
-    act
-  }
+    delBin <- deleteBin(settings)
+  } yield ('u1 ->> get) :: ('u1_del ->> del) :: ('all ->> all) :: ('allDel ->> delBin) :: HNil
 
   println("start")
   println(action.run(client).attemptRun)

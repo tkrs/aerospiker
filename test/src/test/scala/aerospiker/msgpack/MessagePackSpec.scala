@@ -4,7 +4,7 @@ import java.util.UUID
 
 import cats.data.Xor
 import org.scalatest._
-import io.circe._, io.circe.jawn._
+import io.circe._, io.circe.parse._
 
 class MessagePackSpec extends FunSpec with BeforeAndAfter with BeforeAndAfterEach with Matchers {
 

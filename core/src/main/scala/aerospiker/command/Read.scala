@@ -4,7 +4,7 @@ package command
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
 
-import aerospiker.data._
+import aerospiker.Record
 import aerospiker.buffer.Buffer
 import aerospiker.listener.RecordListener
 import cats.data.Xor._

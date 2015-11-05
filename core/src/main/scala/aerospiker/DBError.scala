@@ -1,4 +1,4 @@
-package aerospiker.task
+package aerospiker
 
 sealed abstract class DBError(cause: Throwable = null) extends Exception(cause)
 case class PutError(key: String, cause: Throwable = null) extends DBError(cause)

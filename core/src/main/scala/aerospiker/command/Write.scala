@@ -3,8 +3,7 @@ package command
 
 import java.nio.ByteBuffer
 
-import aerospiker.buffer.Buffer
-import aerospiker.data.Header
+import aerospiker.buffer.{ Buffer, Header }
 import aerospiker.listener.WriteListener
 import com.aerospike.client.policy._
 import com.aerospike.client.{ AerospikeException, Operation }

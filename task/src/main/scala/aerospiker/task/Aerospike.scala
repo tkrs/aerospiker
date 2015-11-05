@@ -1,180 +1,77 @@
 package aerospiker
 package task
 
-import java.util.concurrent.CountDownLatch
-
-import aerospiker.data.Record
-import aerospiker.listener._
+import aerospiker.{ AerospikeClient, Record, Settings }
 import aerospiker.command._
+import aerospiker.listener._
 import com.aerospike.client.{ Operation, AerospikeException }
 import io.circe.{ Encoder, Decoder }
-import scala.collection.mutable.ListBuffer
+import scalaz.{ \/, -\/, \/-, Nondeterminism }
 import scalaz.concurrent.Task
-import scalaz.{ \/, -\/, \/- }
 
-object Aerospike {
+import scala.collection.JavaConversions._
 
-  import Command._
+object Aerospike extends Functions {
 
-  def get[U](settings: Settings, binNames: String*)(implicit decoder: Decoder[U]): Action[U] = withClient[U] { client =>
-    Task.async { cb =>
-      try {
-        new Read(
-          client.cluster,
-          client.policy.asyncReadPolicyDefault,
-          Some(new RecordListener[U] {
-            override def onFailure(e: AerospikeException): Unit = {
-              cb(-\/(GetError(settings.key, e)))
-            }
-
-            override def onSuccess(key: Key, record: Option[Record[U]]): Unit = {
-              record match {
-                case None => cb(-\/(NoSuchKey(settings.key)))
-                case Some(r) => r.bins match {
-                  case None => cb(-\/(GetError(settings.key)))
-                  case Some(bins) => cb(\/-(bins))
-                }
-              }
-            }
-          }),
-          Key(settings.namespace, settings.setName, settings.key),
-          binNames: _*
-        ).execute()
-      } catch {
-        case e: Throwable => cb(-\/(GetError(settings.key, e)))
-      }
-    }
-  }
-
-  private[this] def putExec[U](settings: Settings, bins: U, client: AerospikeClient)(implicit encoder: Encoder[U]): Task[Unit] =
-    Task.async[Unit] { cb =>
-      try {
-        new Write[U](
-          client.cluster,
-          client.policy.asyncWritePolicyDefault,
-          Some(new WriteListener {
-            override def onFailure(e: AerospikeException): Unit = cb(-\/(PutError(settings.key, e)))
-
-            override def onSuccess(key: Key): Unit = cb(\/-({}))
-          }),
-          Key(settings.namespace, settings.setName, settings.key),
-          bins,
-          Operation.Type.WRITE
-        ).execute()
-      } catch {
-        case e: Throwable => -\/(PutError(settings.key, e))
-      }
+  def get[U](settings: Settings, binNames: String*)(implicit decoder: Decoder[U]) =
+    withClient[Task, U] { client =>
+      Task.fork(Task.async[U](cb => Command.get[U](client, settings, binNames, cb)))
     }
 
-  def put[U](settings: Settings, bins: U)(implicit encoder: Encoder[U]) = withClient[Unit] { client =>
-    putExec(settings, bins, client)
-  }
+  private[this] def putExec[U](client: AerospikeClient, settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
+    Task.fork(Task.async[Unit](cb => Command.put(client, settings, bins, cb)))
 
-  def puts[U](settings: Settings, kvs: Map[String, U])(implicit encoder: Encoder[U]) = withClient { client =>
-    Task.fork {
-      Task.delay {
-        val latch = new CountDownLatch(kvs.size)
-        val list = ListBuffer.empty[Throwable \/ String]
-        kvs foreach {
-          case (k, v) => putExec(settings.copy(key = k), v, client) runAsync { r =>
-            list += r.map(_ => k)
-            latch.countDown()
-          }
+  def put[U](settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
+    withClient[Task, Unit] { client =>
+      putExec(client, settings, bins)
+    }
+
+  def puts[U](settings: Settings, kvs: Map[String, U])(implicit encoder: Encoder[U]) =
+    withClient[Task, Seq[Throwable \/ String]] { client =>
+      Task.fork {
+        implicitly[Nondeterminism[Task]].gather {
+          kvs map {
+            case (k, v) =>
+              putExec(client, settings.copy(key = k), v).map(_ => k).attempt
+          } toSeq
         }
-        latch.await()
-        list.toSeq
       }
     }
-  }
 
-  private[this] def deleteExec(settings: Settings, client: AerospikeClient) = Task.async[Boolean] { cb =>
-    try {
-      new Delete(
-        client.cluster,
-        client.policy.asyncWritePolicyDefault,
-        Some(new DeleteListener {
-          override def onFailure(e: AerospikeException): Unit = cb(-\/(DeleteError(settings.key, e)))
-
-          override def onSuccess(key: Key, exists: Boolean): Unit = cb(\/-(exists))
-        }),
-        Key(settings.namespace, settings.setName, settings.key)
-      ).execute()
-    } catch {
-      case e: Throwable => -\/(DeleteError(settings.key, e))
-    }
-  }
-
-  def delete(settings: Settings) = withClient[Boolean] { client =>
-    deleteExec(settings, client)
-  }
-
-  def deletes(settings: Settings, keys: Seq[String]) = withClient { client =>
+  private[this] def deleteExec(client: AerospikeClient, settings: Settings) =
     Task.fork {
-      Task.now {
-        val latch = new CountDownLatch(keys.size)
-        val list = ListBuffer.empty[Throwable \/ String]
-        keys foreach { k =>
-          deleteExec(settings.copy(key = k), client) runAsync { r =>
-            list += r.map(_ => k)
-            latch.countDown()
-          }
+      Task.async[Boolean] { cb =>
+        Command.delete(client, settings, cb)
+      }
+    }
+
+  def delete(settings: Settings) =
+    withClient[Task, Boolean] { client =>
+      deleteExec(client, settings)
+    }
+
+  def deletes(settings: Settings, keys: Seq[String]) =
+    withClient[Task, Seq[Throwable \/ String]] { client =>
+      Task.fork {
+        implicitly[Nondeterminism[Task]].gather(keys.map(k => deleteExec(client, settings.copy(key = k)).map(_ => k).attempt).toSeq)
+      }
+    }
+
+  def all[A](settings: Settings, binNames: String*)(implicit decoder: Decoder[A]) =
+    withClient[Task, Seq[(Key, Option[Record[A]])]] { client =>
+      Task.fork {
+        Task.async[Seq[(Key, Option[Record[A]])]] { cb =>
+          Command.all[A](client, settings, binNames, cb)
         }
-        latch.await()
-        list.toSeq
       }
     }
-  }
 
-  def all[A](settings: Settings, binNames: String*)(
-    implicit
-    decoder: Decoder[A]
-  ) = withClient { client =>
-    Task.async[Seq[(Key, Option[Record[A]])]] { cb =>
-      try {
-        import scala.collection.mutable.ListBuffer
-        val buffer: ListBuffer[(Key, Option[Record[A]])] = ListBuffer.empty
-        new ScanExecutor(
-          client.cluster,
-          client.policy.asyncScanPolicyDefault,
-          Some(new RecordSequenceListener[A] {
-            def onRecord(key: Key, record: Option[Record[A]]): Unit = buffer += key -> record
-
-            def onFailure(e: AerospikeException): Unit = cb(-\/(e))
-
-            def onSuccess(): Unit = cb(\/-(buffer.toSeq))
-          }),
-          settings.namespace,
-          settings.setName,
-          binNames.toArray
-        ).execute()
-      } catch {
-        case e: Throwable => -\/(GetError(settings.key, e))
+  def exists(settings: Settings) =
+    withClient[Task, Boolean] { client =>
+      Task.fork {
+        Task.async[Boolean] { register =>
+          ???
+        }
       }
     }
-  }
-
-  def exists(settings: Settings) = withClient { client =>
-    Task.async[Boolean] { register =>
-      try {
-        new Exists(
-          client.cluster,
-          client.policy.asyncReadPolicyDefault,
-          Some(new ExistsListener {
-            def onSuccess(key: Key, exists: Boolean): Unit = {
-              register(\/-(exists))
-            }
-
-            def onFailure(e: AerospikeException): Unit = {
-              register(-\/(e))
-            }
-          }),
-          Key(settings.namespace, settings.setName, settings.key)
-        ).execute()
-      } catch {
-        case e: Throwable => -\/(GetError(settings.key, e))
-      }
-    }
-  }
-
 }
-

@@ -3,7 +3,7 @@ package command
 
 import java.nio.ByteBuffer
 
-import aerospiker.data._
+import aerospiker.Record
 import com.aerospike.client.{ AerospikeException, ResultCode }
 import com.aerospike.client.async.{ AsyncCluster, AsyncNode, AsyncSingleCommand }
 import com.aerospike.client.cluster.Partition
