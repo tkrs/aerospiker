@@ -1,7 +1,7 @@
 lazy val root = project.in(file("."))
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, task, msgpack)
+  .aggregate(core, task, msgpack, tests)
   .dependsOn(core, task, msgpack)
 
 lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings
@@ -11,12 +11,12 @@ lazy val buildSettings = Seq(
   scalaVersion := "2.11.7"
 )
 
-val aerospikeVersion = "3.1.4"
-val circeVersion = "0.1.1"
+val aerospikeVersion = "3.1.6"
+val circeVersion = "0.2.0"
 val scalazVersion = "7.1.3"
 // val scalacheckVersion = "1.12.3"
-// val scalatestVersion = "2.2.5"
-val catsVersion = "0.1.2"
+val scalatestVersion = "2.2.5"
+val catsVersion = "0.2.0"
 
 lazy val baseSettings = Seq(
   scalacOptions ++= compilerOptions,
@@ -24,10 +24,10 @@ lazy val baseSettings = Seq(
   scalacOptions in (Compile, test) := compilerOptions,
   libraryDependencies ++= Seq(
     "com.aerospike" % "aerospike-client" % aerospikeVersion,
+    "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-jawn" % circeVersion,
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
+    "io.circe" %% "circe-parse" % circeVersion
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -55,7 +55,7 @@ lazy val publishSettings = Seq(
       "scm:git:git@github.com:tkrs/aerospiker.git"
     )
   ),
-  pomExtra := (
+  pomExtra :=
     <developers>
       <developer>
         <id>tkrs</id>
@@ -68,7 +68,6 @@ lazy val publishSettings = Seq(
         <url>https://github.com/yanana</url>
       </developer>
     </developers>
-  )
 )
 
 lazy val noPublishSettings = Seq(
@@ -95,8 +94,7 @@ lazy val task = project.in(file("task"))
   .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "org.spire-math" %% "cats" % catsVersion,
-      "org.scalaz" %% "scalaz-concurrent" % scalazVersion
+      "org.spire-math" %% "cats" % catsVersion
     )
   )
   .dependsOn(core)
@@ -117,9 +115,26 @@ lazy val example = project.in(file("example"))
   )
   .settings(allSettings: _*)
   .settings(noPublishSettings)
+  .settings(fork := true)
   .settings(
     libraryDependencies ++= Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
       "org.slf4j" % "slf4j-simple" % "1.7.12"
+    )
+  )
+  .dependsOn(core, task, msgpack)
+
+lazy val tests = project.in(file("test"))
+  .settings(
+    description := "aerospiker test",
+    moduleName := "aerospiker-test",
+    name := "test"
+  )
+  .settings(allSettings: _*)
+  .settings(noPublishSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scalatest" %% "scalatest" % scalatestVersion
     )
   )
   .dependsOn(core, task, msgpack)
@@ -139,12 +154,6 @@ lazy val compilerOptions = Seq(
   "-Yinline-warnings",
   "-Xlint"
 )
-
-//lazy val tests = Seq(
-//  "org.scalaz" %% "scalaz-scalacheck-binding" % scalazVersion,
-//  "org.scalatest" %% "scalatest" % scalatestVersion,
-//  "org.scalacheck" %% "scalacheck" % scalacheckVersion
-//) map (_ % "test")
 
 scalariformSettings
 wartremoverErrors in (Compile, compile) ++= Warts.all

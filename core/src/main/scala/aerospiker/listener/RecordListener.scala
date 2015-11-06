@@ -1,5 +1,7 @@
 package aerospiker
+package listener
 
+import aerospiker.Record
 import com.aerospike.client.AerospikeException
 
 trait RecordListener[A] {

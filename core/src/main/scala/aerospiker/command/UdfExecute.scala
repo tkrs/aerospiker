@@ -1,15 +1,16 @@
 package aerospiker
+package command
 
+import aerospiker.listener.ExecuteListener
 import aerospiker.msgpack.JsonPacker
 import com.aerospike.client.command.{ Buffer => B, Command => C, FieldType }
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.async.{ AsyncCluster, AsyncNode }
 import com.aerospike.client.policy.WritePolicy
-import com.typesafe.scalalogging.LazyLogging
 import io.circe._
 import io.circe.syntax._
 
-final class AsyncExecute[A, R](
+final class UdfExecute[A, R](
     cluster: AsyncCluster,
     writePolicy: WritePolicy,
     listener: Option[ExecuteListener[R]],
@@ -21,7 +22,7 @@ final class AsyncExecute[A, R](
     implicit
     decoder: Decoder[R],
     encoder: Encoder[A]
-) extends AsyncRead[R](cluster, writePolicy, null, key, null) with LazyLogging {
+) extends Read[R](cluster, writePolicy, null, key, null) {
 
   import policy.Policy
 
@@ -53,7 +54,6 @@ final class AsyncExecute[A, R](
     begin()
     var fieldCount: Int = estimateKeySize(policy, key)
     val doc = args.asJson
-    logger.trace(doc.pretty(Printer.noSpaces))
     val argBytes: Array[Byte] = JsonPacker.pack(doc)
     fieldCount += estimateUdfSize(packageName, functionName, argBytes)
     sizeBuffer()
