@@ -1,9 +1,9 @@
 package aerospiker
 
 import cats.data.ReaderT
-import scalaz.concurrent.Task
 
-abstract class Functions {
-  def withClient[F[_], U](f: AerospikeClient => F[U]): Action[F, U] = ReaderT.function(f)
+trait Functions {
+  type C
+  def withC[F[_], U](f: C => F[U]): Action[F, C, U] = ReaderT.function[F, C, U](f)
 }
 

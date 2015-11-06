@@ -4,7 +4,6 @@ import aerospiker.task.Aerospike
 import aerospiker.task.syntax._
 import io.circe.generic.auto._
 import shapeless._
-import shapeless.poly.identity
 
 import scalaz.concurrent.Task
 
@@ -41,8 +40,6 @@ object Standard extends App {
   }
 
   try {
-    import cats._, std.all._, syntax.all._
-
     val action1 = for {
       put <- put(settings, u1)
       get <- get[User](settings)

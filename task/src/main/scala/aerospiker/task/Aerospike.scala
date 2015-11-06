@@ -1,87 +1,83 @@
 package aerospiker
 package task
 
-import aerospiker.{ AerospikeClient => Client, Record, Settings }
-import aerospiker.command._
-import aerospiker.listener._
-import com.aerospike.client.{ Operation, AerospikeException }
 import io.circe.{ Encoder, Decoder }
-import scalaz.{ \/, -\/, \/-, Nondeterminism }
+import scalaz.{ \/, Nondeterminism }
 import scalaz.concurrent.Task
-
-import scala.collection.JavaConversions._
 
 object Aerospike extends Functions {
 
+  type C = AerospikeClient
+
   def get[U](settings: Settings, binNames: String*)(implicit decoder: Decoder[U]) =
-    withClient[Task, U] { client =>
+    withC[Task, U] { c =>
       Task.fork {
         Task.async[U] { cb =>
-          Command.get[U](client, settings, binNames, cb)
+          Command.get[U](c, settings, binNames, cb)
         }
       }
     }
 
-  private[this] def putExec[U](client: Client, settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
+  private[this] def putExec[U](c: C, settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
     Task.fork {
       Task.async[Unit] { cb =>
-        Command.put(client, settings, bins, cb)
+        Command.put(c, settings, bins, cb)
       }
     }
 
   def put[U](settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
-    withClient[Task, Unit] { client =>
-      putExec(client, settings, bins)
+    withC[Task, Unit] { c =>
+      putExec(c, settings, bins)
     }
 
   def puts[U](settings: Settings, kv: Map[String, U])(implicit encoder: Encoder[U]) =
-    withClient[Task, Seq[Throwable \/ String]] { client =>
+    withC[Task, Seq[Throwable \/ String]] { c =>
       Task.fork {
         implicitly[Nondeterminism[Task]].gather {
           kv map {
-            case (k, v) => putExec(client, settings.copy(key = k), v).map(_ => k).attempt
+            case (k, v) => putExec(c, settings.copy(key = k), v).map(_ => k).attempt
           } toSeq
         }
       }
     }
 
-  private[this] def deleteExec(client: Client, settings: Settings) =
+  private[this] def deleteExec(c: C, settings: Settings) =
     Task.fork {
       Task.async[Boolean] { cb =>
-        Command.delete(client, settings, cb)
+        Command.delete(c, settings, cb)
       }
     }
 
   def delete(settings: Settings) =
-    withClient[Task, Boolean] { client =>
-      deleteExec(client, settings)
+    withC[Task, Boolean] { c =>
+      deleteExec(c, settings)
     }
 
   def deletes(settings: Settings, keys: Seq[String]) =
-    withClient[Task, Seq[Throwable \/ String]] { client =>
+    withC[Task, Seq[Throwable \/ String]] { c =>
       Task.fork {
         implicitly[Nondeterminism[Task]].gather {
           keys.map { k =>
-            deleteExec(client, settings.copy(key = k)).map(_ => k).attempt
+            deleteExec(c, settings.copy(key = k)).map(_ => k).attempt
           } toSeq
         }
       }
     }
 
   def all[A](settings: Settings, binNames: String*)(implicit decoder: Decoder[A]) =
-    withClient[Task, Seq[(Key, Option[Record[A]])]] { client =>
+    withC[Task, Seq[(Key, Option[Record[A]])]] { c =>
       Task.fork {
         Task.async[Seq[(Key, Option[Record[A]])]] { cb =>
-          Command.all[A](client, settings, binNames, cb)
+          Command.all[A](c, settings, binNames, cb)
         }
       }
     }
 
   def exists(settings: Settings) =
-    withClient[Task, Boolean] { client =>
+    withC[Task, Boolean] { c =>
       Task.fork {
         Task.async[Boolean] { cb =>
-          Command.exists(client, settings, cb)
+          Command.exists(c, settings, cb)
         }
       }
     }

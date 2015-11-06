@@ -6,7 +6,6 @@ import aerospiker.listener._
 import aerospiker.command._
 import com.aerospike.client.{ Operation, AerospikeException }
 import io.circe.{ Encoder, Decoder }
-import scalaz.concurrent.Task
 import scalaz.{ \/, -\/, \/- }
 
 import scala.collection.JavaConversions._
@@ -100,5 +99,4 @@ object Command {
     } catch {
       case e: Throwable => -\/(GetError(settings.key, e))
     }
-
 }
