@@ -18,13 +18,6 @@ object Aerospike extends Functions {
       }
     }
 
-  private[this] def putExec[U](c: C, settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
-    Task.fork {
-      Task.async[Unit] { cb =>
-        Command.put(c, settings, bins, cb)
-      }
-    }
-
   def put[U](settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
     withC[Task, Unit] { c =>
       putExec(c, settings, bins)
@@ -38,13 +31,6 @@ object Aerospike extends Functions {
             case (k, v) => putExec(c, settings.copy(key = k), v).map(_ => k).attempt
           } toSeq
         }
-      }
-    }
-
-  private[this] def deleteExec(c: C, settings: Settings) =
-    Task.fork {
-      Task.async[Boolean] { cb =>
-        Command.delete(c, settings, cb)
       }
     }
 
@@ -79,6 +65,20 @@ object Aerospike extends Functions {
         Task.async[Boolean] { cb =>
           Command.exists(c, settings, cb)
         }
+      }
+    }
+
+  private[this] def putExec[U](c: C, settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
+    Task.fork {
+      Task.async[Unit] { cb =>
+        Command.put(c, settings, bins, cb)
+      }
+    }
+
+  private[this] def deleteExec(c: C, settings: Settings) =
+    Task.fork {
+      Task.async[Boolean] { cb =>
+        Command.delete(c, settings, cb)
       }
     }
 }
