@@ -1,6 +1,6 @@
 package aerospiker
 
-import java.util.concurrent.{ CountDownLatch, ConcurrentLinkedQueue }
+import java.util.concurrent.ConcurrentLinkedQueue
 
 import aerospiker.listener._
 import aerospiker.command._
