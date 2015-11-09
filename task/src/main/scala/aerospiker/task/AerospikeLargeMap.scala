@@ -1,9 +1,13 @@
 package aerospiker
 package task
 
+import com.aerospike.client.AerospikeException
+
 import aerospiker.{ LargeMapCommand => Command }
+import aerospiker.listener._
 import io.circe.{ Encoder, Decoder }
 
+import scalaz.{ \/-, -\/ }
 import scalaz.concurrent.Task
 
 object AerospikeLargeMap extends Functions {
@@ -16,7 +20,20 @@ object AerospikeLargeMap extends Functions {
       implicit val enc = Encoder[Seq[String]]
       Task.fork {
         Task.async[Option[R]] { cb =>
-          Command.get(c, settings, a, cb)
+          try {
+            Command.get(c, settings, a,
+              Some(new ExecuteListener[Map[String, Map[String, R]]] {
+                override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+                override def onSuccess(key: Key, rec: Option[Record[Map[String, Map[String, R]]]]): Unit = {
+                  val o = rec.collect { case Record(Some(x), _, _) => x }
+                  val x = o getOrElse Map.empty
+                  val v = x.get("SUCCESS") flatMap (_ get a)
+                  cb(\/-(v))
+                }
+              }))
+          } catch {
+            case e: Throwable => cb(-\/(e))
+          }
         }
       }
     }
@@ -25,7 +42,21 @@ object AerospikeLargeMap extends Functions {
     withC[Task, Unit] { c =>
       Task.fork {
         Task.async[Unit] { cb =>
-          Command.puts(c, settings, m, cb)
+          try {
+            Command.puts(c, settings, m,
+              Some(new ExecuteListener[Map[String, Int]] {
+                override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+                override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
+                  val o = a.collect { case Record(Some(x), _, _) => x }
+                  val x = o getOrElse Map.empty
+                  if (x.contains("SUCCESS")) cb(\/-({}))
+                  else if (x.contains("FAILURE")) cb(-\/(new AerospikeException(a.toString)))
+                  else cb(-\/(new AerospikeException("Invalid UDF return value")))
+                }
+              }))
+          } catch {
+            case e: Throwable => cb(-\/(e))
+          }
         }
       }
     }
@@ -34,7 +65,24 @@ object AerospikeLargeMap extends Functions {
     withC[Task, Unit] { c =>
       Task.fork {
         Task.async[Unit] { cb =>
-          Command.put(c, settings, name, value, cb)
+          try {
+            Command.put(c, settings, name, value,
+              Some(new ExecuteListener[Map[String, Int]] {
+                override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+                override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
+                  val o = a.collect { case Record(Some(x), _, _) => x }
+                  val x = o getOrElse Map.empty
+                  if (x.contains("SUCCESS"))
+                    cb(\/-({}))
+                  else if (x.contains("FAILURE"))
+                    cb(-\/(new AerospikeException(a.toString)))
+                  else
+                    cb(-\/(new AerospikeException("Invalid UDF return value")))
+                }
+              }))
+          } catch {
+            case e: Throwable => cb(-\/(e))
+          }
         }
       }
     }
@@ -43,7 +91,19 @@ object AerospikeLargeMap extends Functions {
     withC[Task, Option[R]] { c =>
       Task.fork {
         Task.async[Option[R]] { cb =>
-          Command.all(c, settings, cb)
+          try {
+            Command.all(c, settings,
+              Some(new ExecuteListener[Map[String, R]] {
+                override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+                override def onSuccess(key: Key, a: Option[Record[Map[String, R]]]): Unit = {
+                  val o = a.collect { case Record(Some(x), _, _) => x }
+                  val x = o getOrElse Map.empty
+                  cb(\/-(x.get("SUCCESS")))
+                }
+              }))
+          } catch {
+            case e: Throwable => cb(-\/(e))
+          }
         }
       }
     }
@@ -51,7 +111,24 @@ object AerospikeLargeMap extends Functions {
   def delete(settings: Settings, name: String)(implicit encoder: Encoder[(String, String)]) =
     withC[Task, Unit] { c =>
       Task.async[Unit] { cb =>
-        Command.delete(c, settings, name, cb)
+        try {
+          Command.delete(c, settings, name,
+            Some(new ExecuteListener[Map[String, Int]] {
+              override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+              override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
+                val o = a.collect { case Record(Some(x), _, _) => x }
+                val x = o getOrElse Map.empty
+                if (x.contains("SUCCESS"))
+                  cb(\/-({}))
+                else if (x.contains("FAILURE"))
+                  cb(-\/(new AerospikeException(a.toString)))
+                else
+                  cb(-\/(new AerospikeException("Invalid UDF return value")))
+              }
+            }))
+        } catch {
+          case e: Throwable => cb(-\/(e))
+        }
       }
     }
 
@@ -59,7 +136,24 @@ object AerospikeLargeMap extends Functions {
     withC[Task, Unit] { c =>
       Task.fork {
         Task.async[Unit] { cb =>
-          Command.deleteBin(c, settings, cb)
+          try {
+            Command.deleteBin(c, settings,
+              Some(new ExecuteListener[Map[String, Int]] {
+                override def onFailure(e: AerospikeException): Unit = cb(-\/(e))
+                override def onSuccess(key: Key, a: Option[Record[Map[String, Int]]]): Unit = {
+                  val o = a.collect { case Record(Some(x), _, _) => x }
+                  val x = o getOrElse Map.empty
+                  if (x.contains("SUCCESS"))
+                    cb(\/-({}))
+                  else if (x.contains("FAILURE"))
+                    cb(-\/(new AerospikeException(a.toString)))
+                  else
+                    cb(-\/(new AerospikeException("Invalid UDF return value")))
+                }
+              }))
+          } catch {
+            case e: Throwable => cb(-\/(e))
+          }
         }
       }
     }
