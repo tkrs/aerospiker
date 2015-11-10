@@ -31,7 +31,7 @@ object Standard extends App {
       _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
       all <- all[User](settings)
       dels <- deletes(settings, Seq(u1.name, u2.name, u3.name))
-    } yield get :: del :: all :: dels :: HNil
+    } yield "Done"
 
     println("start 1")
     println(action.run(client).attemptRun)
@@ -43,12 +43,12 @@ object Standard extends App {
     val action1 = for {
       put <- put(settings, u1)
       get <- get[User](settings)
-    } yield put :: get :: HNil
+    } yield "Done1"
 
     val action2 = for {
       put <- put(settings, u2)
       get <- get[User](settings)
-    } yield put :: get :: HNil
+    } yield "Done2"
 
     val t1 = Task.fork(action1.run(client))
     val t2 = Task.fork(action2.run(client))

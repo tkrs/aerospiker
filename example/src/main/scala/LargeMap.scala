@@ -27,7 +27,7 @@ object LargeMap extends App {
     _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
     all <- all[Users](settings)
     delBin <- deleteBin(settings)
-  } yield ('u1 ->> get) :: ('u1_del ->> del) :: ('all ->> all) :: ('allDel ->> delBin) :: HNil
+  } yield "Done"
 
   println("start")
   println(action.run(client).attemptRun)
