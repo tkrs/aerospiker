@@ -3,7 +3,7 @@ import cats.data.ReaderT
 
 package object aerospiker {
 
-  type Action[F[_], C, U] = ReaderT[F, C, U]
+  type Action[F[_], U] = ReaderT[F, AerospikeClient, U]
 
   type Host = com.aerospike.client.Host
   type Key = com.aerospike.client.Key

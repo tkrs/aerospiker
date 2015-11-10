@@ -13,10 +13,8 @@ import scala.collection.JavaConversions._
 
 object Aerospike extends Functions {
 
-  type C = AerospikeClient
-
   def get[U](settings: Settings, binNames: String*)(implicit decoder: Decoder[U]) =
-    withC[Task, U] { c =>
+    withClient[Task, U] { c =>
       Task.fork {
         Task.async[U] { cb =>
           try {
@@ -39,7 +37,7 @@ object Aerospike extends Functions {
     }
 
   def put[U](settings: Settings, bins: U)(implicit encoder: Encoder[U]) =
-    withC[Task, Unit] { c =>
+    withClient[Task, Unit] { c =>
       Task.fork {
         Task.async[Unit] { cb =>
           try {
@@ -56,7 +54,7 @@ object Aerospike extends Functions {
     }
 
   def puts[U](settings: Settings, kv: Map[String, U])(implicit encoder: Encoder[U]) =
-    withC[Task, Seq[Throwable \/ String]] { c =>
+    withClient[Task, Seq[Throwable \/ String]] { c =>
       Task.fork {
         implicitly[Nondeterminism[Task]].gather {
           kv map {
@@ -68,7 +66,7 @@ object Aerospike extends Functions {
     }
 
   def delete(settings: Settings) =
-    withC[Task, Boolean] { c =>
+    withClient[Task, Boolean] { c =>
       Task.fork {
         Task.async[Boolean] { cb =>
           try {
@@ -85,7 +83,7 @@ object Aerospike extends Functions {
     }
 
   def deletes(settings: Settings, keys: Seq[String]) =
-    withC[Task, Seq[Throwable \/ String]] { c =>
+    withClient[Task, Seq[Throwable \/ String]] { c =>
       Task.fork {
         implicitly[Nondeterminism[Task]].gather {
           keys.map { k =>
@@ -96,7 +94,7 @@ object Aerospike extends Functions {
     }
 
   def all[A](settings: Settings, binNames: String*)(implicit decoder: Decoder[A]) =
-    withC[Task, Seq[(Key, Option[Record[A]])]] { c =>
+    withClient[Task, Seq[(Key, Option[Record[A]])]] { c =>
       Task.fork {
         Task.async[Seq[(Key, Option[Record[A]])]] { cb =>
           try {
@@ -115,7 +113,7 @@ object Aerospike extends Functions {
     }
 
   def exists(settings: Settings) =
-    withC[Task, Boolean] { c =>
+    withClient[Task, Boolean] { c =>
       Task.fork {
         Task.async[Boolean] { cb =>
           try {

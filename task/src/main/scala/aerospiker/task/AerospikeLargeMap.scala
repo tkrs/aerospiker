@@ -12,10 +12,8 @@ import scalaz.concurrent.Task
 
 object AerospikeLargeMap extends Functions {
 
-  type C = AerospikeClient
-
   def get[R](settings: Settings, a: String)(implicit decoder: Decoder[R]) =
-    withC[Task, Option[R]] { c =>
+    withClient[Task, Option[R]] { c =>
       implicit val dec = Decoder[Map[String, Map[String, R]]]
       implicit val enc = Encoder[Seq[String]]
       Task.fork {
@@ -39,7 +37,7 @@ object AerospikeLargeMap extends Functions {
     }
 
   def puts[A](settings: Settings, m: A)(implicit encoder: Encoder[(String, A)]) =
-    withC[Task, Unit] { c =>
+    withClient[Task, Unit] { c =>
       Task.fork {
         Task.async[Unit] { cb =>
           try {
@@ -62,7 +60,7 @@ object AerospikeLargeMap extends Functions {
     }
 
   def put[A](settings: Settings, name: String, value: A)(implicit encoder: Encoder[(String, String, A)]) =
-    withC[Task, Unit] { c =>
+    withClient[Task, Unit] { c =>
       Task.fork {
         Task.async[Unit] { cb =>
           try {
@@ -88,7 +86,7 @@ object AerospikeLargeMap extends Functions {
     }
 
   def all[R](settings: Settings)(implicit decoder: Decoder[R]) =
-    withC[Task, Option[R]] { c =>
+    withClient[Task, Option[R]] { c =>
       Task.fork {
         Task.async[Option[R]] { cb =>
           try {
@@ -109,7 +107,7 @@ object AerospikeLargeMap extends Functions {
     }
 
   def delete(settings: Settings, name: String)(implicit encoder: Encoder[(String, String)]) =
-    withC[Task, Unit] { c =>
+    withClient[Task, Unit] { c =>
       Task.async[Unit] { cb =>
         try {
           Command.delete(c, settings, name,
@@ -133,7 +131,7 @@ object AerospikeLargeMap extends Functions {
     }
 
   def deleteBin(settings: Settings)(implicit encoder: Encoder[String]) =
-    withC[Task, Unit] { c =>
+    withClient[Task, Unit] { c =>
       Task.fork {
         Task.async[Unit] { cb =>
           try {
