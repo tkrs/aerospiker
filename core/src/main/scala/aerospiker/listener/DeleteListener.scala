@@ -1,8 +1,9 @@
 package aerospiker
+package listener
 
 import com.aerospike.client.AerospikeException
 
-trait ExistsListener {
-  def onSuccess(key: Key, exists: Boolean): Unit
+trait DeleteListener {
+  def onSuccess(key: Key, existed: Boolean): Unit
   def onFailure(e: AerospikeException): Unit
 }

@@ -1,13 +1,15 @@
 package aerospiker
+package command
 
 import java.nio.ByteBuffer
 import com.aerospike.client.{ AerospikeException, ResultCode }
 import com.aerospike.client.async.{ AsyncCluster, AsyncNode, AsyncSingleCommand }
 import com.aerospike.client.cluster.Partition
 import com.aerospike.client.policy.Policy
-import com.typesafe.scalalogging.LazyLogging
 
-final class AsyncExists(cluster: AsyncCluster, policy: Policy, listener: Option[ExistsListener], key: Key) extends AsyncSingleCommand(cluster) with LazyLogging {
+import listener.ExistsListener
+
+final class Exists(cluster: AsyncCluster, policy: Policy, listener: Option[ExistsListener], key: Key) extends AsyncSingleCommand(cluster) {
 
   private val partition: Partition = new Partition(key)
 
@@ -15,7 +17,7 @@ final class AsyncExists(cluster: AsyncCluster, policy: Policy, listener: Option[
 
   def getPolicy: Policy = policy
 
-  def writeBuffer: Unit = setExists(policy, key)
+  def writeBuffer(): Unit = setExists(policy, key)
 
   def getNode: AsyncNode = {
     cluster.getReadNode(partition, policy.replica).asInstanceOf[AsyncNode]
@@ -29,7 +31,7 @@ final class AsyncExists(cluster: AsyncCluster, policy: Policy, listener: Option[
     else throw new AerospikeException(resultCode)
   }
 
-  def onSuccess: Unit = {
+  def onSuccess(): Unit = {
     listener match {
       case Some(l) => l.onSuccess(key, exists)
       case None => // nop

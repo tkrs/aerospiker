@@ -1,6 +1,10 @@
 package aerospiker
+package command
 
 import java.nio.ByteBuffer
+
+import aerospiker.buffer.{ Buffer, Header }
+import aerospiker.listener.WriteListener
 import com.aerospike.client.policy._
 import com.aerospike.client.{ AerospikeException, Operation }
 import com.aerospike.client.async.{ AsyncSingleCommand, AsyncCluster, AsyncNode }
@@ -9,7 +13,6 @@ import com.aerospike.client.command.{ Command => C, ParticleType, FieldType }
 import aerospiker.policy.{ Policy, WritePolicy }
 
 import aerospiker.msgpack.JsonPacker
-import com.typesafe.scalalogging.LazyLogging
 import io.circe._
 import io.circe.syntax._
 
@@ -17,7 +20,7 @@ import scala.collection.mutable.ListBuffer
 
 // TODO: improve implement
 
-final class AsyncWrite[T](
+final class Write[T](
     cluster: AsyncCluster,
     policy: WritePolicy,
     listener: Option[WriteListener],
@@ -27,7 +30,7 @@ final class AsyncWrite[T](
 )(
     implicit
     encoder: Encoder[T]
-) extends AsyncSingleCommand(cluster) with LazyLogging {
+) extends AsyncSingleCommand(cluster) {
 
   val partition = new Partition(key)
 
@@ -37,7 +40,6 @@ final class AsyncWrite[T](
     val start = System.currentTimeMillis()
     val buffer = setWrite(policy, operation, key, bins)
     val end = System.currentTimeMillis()
-    logger.debug(s"${end - start} ms")
 
     sizeBuffer()
     System.arraycopy(buffer, 0, dataBuffer, 0, buffer.length)
@@ -67,10 +69,8 @@ final class AsyncWrite[T](
     val byteBuffer: ListBuffer[Byte] = ListBuffer.empty
 
     val json = bins.asJson
-    logger.debug(json.pretty(Printer.noSpaces))
     val jsonObjs = json.asObject.getOrElse(JsonObject.empty).toList
 
-    logger.debug(key.toString)
     val fields = Seq(
       writeField(key.namespace, FieldType.NAMESPACE, 0, true),
       writeField(key.setName, FieldType.TABLE, 0, true),
@@ -82,14 +82,10 @@ final class AsyncWrite[T](
       Header(headerLength = C.MSG_REMAINING_HEADER_SIZE, writeAttr = C.INFO2_WRITE, fieldCount = fields.size, operationCount = jsonObjs.size)
     )
 
-    logger.debug(header.toString)
-
     byteBuffer ++= header.getBytes
-    logger.debug(s"byteBuffer size after add header => ${byteBuffer.size}")
 
     // Write key into buffer.
     byteBuffer ++= fields.flatten
-    logger.debug(s"byteBuffer size after add fileds => ${byteBuffer.size}")
 
     val values = jsonObjs.foreach {
       case (k: String, v: Json) =>
@@ -103,11 +99,9 @@ final class AsyncWrite[T](
         byteBuffer ++= nameBytes
         byteBuffer ++= valueBytes
     }
-    logger.debug(s"bytBuffer size after add values => ${byteBuffer.size}")
 
     val size: Long = byteBuffer.size | (C.CL_MSG_VERSION << 56) | (C.AS_MSG_TYPE << 48)
     byteBuffer prependAll Buffer.longToBytes(size)
-    logger.debug(s"total byteBuffer size => ${byteBuffer.size}")
 
     byteBuffer.toArray
   }
@@ -158,14 +152,11 @@ final class AsyncWrite[T](
     if (!send) None
     else {
       val (fieldBytes, fieldLength) = Buffer.stringToUtf8(str)
-      logger.debug(fieldLength.toString)
       val lenBytes = Buffer.intToBytes(fieldLength + 1 + add)
       val b = lenBytes ++ Array(typ.toByte)
       if (typ == FieldType.KEY) {
-        logger.debug(s"writeField => ${b.length}")
         Some(b ++ Array(ParticleType.STRING.toByte) ++ fieldBytes)
       } else {
-        logger.debug(s"writeField => ${b.length}")
         Some(b ++ fieldBytes)
       }
     }
@@ -176,7 +167,6 @@ final class AsyncWrite[T](
     else {
       val lenBytes = Buffer.intToBytes(bytes.length + 1 + add)
       val b = lenBytes ++ Array(typ.toByte) ++ bytes
-      logger.debug(s"writeField => ${b.length}")
       Some(b)
     }
 
@@ -214,40 +204,3 @@ final class AsyncWrite[T](
     Buffer.longToBytes(java.lang.Double.doubleToLongBits(v)).toArray
   }
 }
-
-case class Header(
-    headerLength: Int = 0,
-    readAttr: Int = 0,
-    writeAttr: Int = 0,
-    infoAttr: Int = 0,
-    resultCode: Int = 0,
-    generation: Int = 0,
-    expiration: Int = 0,
-    timeOut: Int = 0,
-    fieldCount: Int = 0,
-    operationCount: Int = 0
-) {
-  def withInfoAttr(infoAttr: Int) = copy(infoAttr = infoAttr)
-  def withReadAttr(readAttr: Int) = copy(readAttr = readAttr)
-  def withWriteAttr(writeAttr: Int) = copy(writeAttr = writeAttr)
-  def withGeneration(generation: Int) = copy(generation = generation)
-  def getBytes: Seq[Byte] = {
-    // Write all header data except total size which must be written last.
-    val bytes: ListBuffer[Byte] = ListBuffer.empty
-    bytes += headerLength.toByte // Message header length.
-    bytes += readAttr.toByte
-    bytes += writeAttr.toByte
-    bytes += infoAttr.toByte
-    bytes += 0.toByte //
-    bytes += 0.toByte // clear the result code
-    bytes ++= Buffer.intToBytes(generation)
-    bytes ++= Buffer.intToBytes(expiration)
-    // Initialize timeout. It will be written later.
-    bytes ++= (0 :: 0 :: 0 :: 0 :: Nil).map(_.toByte)
-    bytes ++= Buffer.shortToBytes(fieldCount.toShort)
-    bytes ++= Buffer.shortToBytes(operationCount.toShort)
-    bytes.toSeq
-  }
-
-}
-

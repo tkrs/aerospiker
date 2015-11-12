@@ -1,8 +1,9 @@
 package aerospiker
+package listener
 
 import com.aerospike.client.AerospikeException
 
-trait ExecuteListener[A] {
-  def onSuccess(key: Key, a: Option[Record[A]]): Unit
+trait ExistsListener {
+  def onSuccess(key: Key, exists: Boolean): Unit
   def onFailure(e: AerospikeException): Unit
 }

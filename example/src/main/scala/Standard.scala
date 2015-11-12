@@ -1,95 +1,64 @@
-import aerospiker.policy.{ WritePolicy, ClientPolicy }
-import cats.data.Xor._
-import com.typesafe.scalalogging.LazyLogging
+import aerospiker._
+import aerospiker.policy.{ ClientPolicy, WritePolicy }
+import aerospiker.task.Aerospike
+import aerospiker.task.syntax._
 import io.circe.generic.auto._
+import shapeless._
 
-import scala.collection.mutable
+import scalaz.concurrent.Task
 
-object Standard extends App with LazyLogging {
-
-  import aerospiker._
-  import aerospiker.task.Aerospike
-
-  val writePolicy = WritePolicy(sendKey = true, timeout = 3000, maxRetries = 5)
-  implicit val clientPolicy = ClientPolicy(writePolicyDefault = writePolicy)
-
-  val client = AsyncClient(Host("192.168.99.100", 3000))
-  logger.info(s"connected => ${client.cluster.isConnected}")
-  for (node <- client.cluster.getNodes) {
-    logger.info(node.getHost.toString)
-    logger.info(node.getName.toString)
-  }
+object Standard extends App {
 
   case class User(name: String, age: Int, now: Long, bbb: Seq[Double], option: Option[String])
   val u1 = User("bbb", 31, System.currentTimeMillis(), Seq(1.2, 3.4), None)
   val u2 = User("aaa", 24, System.currentTimeMillis(), Seq(1.2, 3.4), Some("OK"))
   val u3 = User("ccc", 3, System.currentTimeMillis(), Seq(1.2, 3.4), Some("OK"))
 
-  val cmd = AsyncCommandExecutor(client)
+  val writePolicy = WritePolicy(sendKey = true, timeout = 3000, maxRetries = 5)
+  val clientPolicy = ClientPolicy(writePolicyDefault = writePolicy)
 
-  val task = new Aerospike(cmd) {
-    override protected def namespace: String = "test"
-    override protected def setName: String = "user"
+  val client = AerospikeClient(clientPolicy, Host("192.168.99.100", 3000))
+
+  val settings = Settings("test", "account", "user")
+
+  import Aerospike._
+
+  try {
+    val action = for {
+      _ <- put(settings, u1)
+      get <- get[User](settings)
+      del <- delete(settings)
+      _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
+      all <- all[User](settings)
+      dels <- deletes(settings, Seq(u1.name, u2.name, u3.name))
+    } yield "Done"
+
+    println("start 1")
+    println(action.run(client).attemptRun)
+  } catch {
+    case e: Throwable => println(e.getMessage)
   }
 
-  val key1 = "u1"
-  val key2 = "u2"
-  val key3 = "test"
+  try {
+    val action1 = for {
+      put <- put(settings, u1)
+      get <- get[User](settings)
+    } yield "Done1"
 
-  task.put[User](key1, u1).run match {
-    case Right(v) => logger.info(s"put $v")
-    case Left(e) => e.printStackTrace()
+    val action2 = for {
+      put <- put(settings, u2)
+      get <- get[User](settings)
+    } yield "Done2"
+
+    val t1 = Task.fork(action1.run(client))
+    val t2 = Task.fork(action2.run(client))
+
+    import scalaz.Nondeterminism
+    println("start 2")
+    println(implicitly[Nondeterminism[Task]].both(t1, t2).run)
+  } catch {
+    case e: Throwable => println(e.getMessage)
   }
 
-  task.put[User](key2, u2).run match {
-    case Right(v) => logger.info(s"put $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  task.put[User](key3, u3).run match {
-    case Right(v) => logger.info(s"put $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  task.get[User](key1).run match {
-    case Right(v) => logger.info(s"get $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  task.get[User](key2).run match {
-    case Right(v) => logger.info(s"get $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  task.all[User]("name", "age", "now", "bbb").run match {
-    case Right(v) => logger.info(s"all $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  task.delete(key3).run match {
-    case Right(v) => logger.info(s"delete $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  task.deletes(key1 :: key2 :: Nil).run.foreach {
-    case Right(v) => logger.info(s"delete $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  val m = mutable.Map.empty[String, Map[String, User]]
-  (1 to 10000) foreach (i => m += i.toString -> Map("a" -> u1))
-  m("5000") = Map("123456789012345" -> u1)
-
-  task.puts(m.toMap).run.foreach {
-    case Right(v) => logger.info(s"put $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  task.deletes(m.keys.toSeq).run.foreach {
-    case Right(v) => logger.info(s"delete $v")
-    case Left(e) => e.printStackTrace()
-  }
-
-  client.cluster.close()
-
+  client.close()
 }

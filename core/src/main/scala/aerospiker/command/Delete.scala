@@ -1,15 +1,16 @@
 package aerospiker
+package command
 
 import java.nio.ByteBuffer
 
 import com.aerospike.client.{ ResultCode, AerospikeException }
 import com.aerospike.client.async.{ AsyncNode, AsyncCluster, AsyncSingleCommand }
 import com.aerospike.client.cluster.Partition
-import com.typesafe.scalalogging.LazyLogging
 
 import policy.{ Policy, WritePolicy }
+import listener.DeleteListener
 
-final class AsyncDelete(cluster: AsyncCluster, policy: WritePolicy, listener: Option[DeleteListener], key: Key) extends AsyncSingleCommand(cluster) with LazyLogging {
+final class Delete(cluster: AsyncCluster, policy: WritePolicy, listener: Option[DeleteListener], key: Key) extends AsyncSingleCommand(cluster) {
 
   private val partition: Partition = new Partition(key)
   private var existed: Boolean = false
