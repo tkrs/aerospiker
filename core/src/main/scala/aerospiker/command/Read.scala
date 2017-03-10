@@ -4,50 +4,40 @@ package command
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
 
-import aerospiker.Record
 import aerospiker.buffer.Buffer
 import aerospiker.listener.RecordListener
-import cats.data.Xor._
+import aerospiker.policy.Policy
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.AerospikeException.Parse
 import com.aerospike.client.ResultCode._
-import com.aerospike.client.async.{ AsyncNode, AsyncCluster }
-import com.aerospike.client.cluster.Partition
+import com.aerospike.client.async.{ AsyncCluster, AsyncCommand }
+import com.aerospike.client.cluster.{ Node, Partition }
 import com.aerospike.client.command.Command
-import com.aerospike.client.policy.Policy
 import com.aerospike.client.util.ThreadLocalData
 import io.circe._
+
 import scala.collection.mutable.ListBuffer
 
-class Read[T](
+class Read[T: Decoder](
     cluster: AsyncCluster,
     policy: Policy,
     listener: Option[RecordListener[T]],
     key: Key,
     binNames: String*
-)(
-    implicit
-    decoder: Decoder[T]
-) extends com.aerospike.client.async.AsyncSingleCommand(cluster) {
+) extends com.aerospike.client.async.AsyncSingleCommand(cluster, policy) {
 
   val partition = new Partition(key)
   var record: Option[Record[T]] = None
 
-  def getPolicy = policy
-
-  def writeBuffer(): Unit = {
-    val start = System.currentTimeMillis()
+  override def writeBuffer(): Unit =
     setRead(policy, key, if (binNames.isEmpty) null else binNames.toArray)
-    val end = System.currentTimeMillis()
-  }
 
-  def getNode: AsyncNode = cluster.getReadNode(partition, policy.replica).asInstanceOf[AsyncNode]
+  override def getNode: Node = cluster.getReadNode(partition, policy.replica)
 
-  def parseResult(byteBuffer: ByteBuffer): Unit = {
+  override def parseResult(byteBuffer: ByteBuffer): Unit = {
     dataBuffer = ThreadLocalData.getBuffer
-    if (receiveSize > dataBuffer.length) {
+    if (receiveSize > dataBuffer.length)
       dataBuffer = ThreadLocalData.resizeBuffer(receiveSize)
-    }
 
     // Copy entire message to dataBuffer.
     byteBuffer.position(0)
@@ -107,13 +97,15 @@ class Read[T](
 
   }
 
-  def onSuccess(): Unit = listener match {
+  override def onSuccess(): Unit = listener match {
     case Some(l) => l.onSuccess(key, record)
     case None => // nop
   }
 
-  def onFailure(e: AerospikeException): Unit = listener match {
+  override def onFailure(e: AerospikeException): Unit = listener match {
     case Some(l) => l.onFailure(e)
     case None => // nop
   }
+
+  override def cloneCommand(): AsyncCommand = new Read[T](cluster, policy, listener, key, binNames: _*)
 }

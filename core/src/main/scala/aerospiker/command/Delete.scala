@@ -3,25 +3,27 @@ package command
 
 import java.nio.ByteBuffer
 
-import com.aerospike.client.{ ResultCode, AerospikeException }
-import com.aerospike.client.async.{ AsyncNode, AsyncCluster, AsyncSingleCommand }
-import com.aerospike.client.cluster.Partition
-
-import policy.{ Policy, WritePolicy }
+import com.aerospike.client.{ AerospikeException, ResultCode }
+import com.aerospike.client.async.{ AsyncCluster, AsyncCommand, AsyncSingleCommand }
+import com.aerospike.client.cluster.{ Node, Partition }
+import policy.WritePolicy
 import listener.DeleteListener
 
-final class Delete(cluster: AsyncCluster, policy: WritePolicy, listener: Option[DeleteListener], key: Key) extends AsyncSingleCommand(cluster) {
+final class Delete(
+    cluster: AsyncCluster,
+    policy: WritePolicy,
+    listener: Option[DeleteListener],
+    key: Key
+) extends AsyncSingleCommand(cluster, policy) {
 
-  private val partition: Partition = new Partition(key)
-  private var existed: Boolean = false
+  private[this] val partition: Partition = new Partition(key)
+  private[this] var existed: Boolean = false
 
-  def getPolicy: Policy = policy
+  override def writeBuffer(): Unit = setDelete(policy, key)
 
-  def writeBuffer(): Unit = setDelete(policy, key)
+  override def getNode: Node = cluster.getMasterNode(partition)
 
-  def getNode: AsyncNode = cluster.getMasterNode(partition).asInstanceOf[AsyncNode]
-
-  def parseResult(byteBuffer: ByteBuffer): Unit = {
+  override def parseResult(byteBuffer: ByteBuffer): Unit = {
     val resultCode: Int = byteBuffer.get(5) & 0xFF
     if (resultCode == 0) {
       existed = true
@@ -34,14 +36,16 @@ final class Delete(cluster: AsyncCluster, policy: WritePolicy, listener: Option[
     }
   }
 
-  def onSuccess(): Unit = listener match {
+  override def onSuccess(): Unit = listener match {
     case Some(l) => l.onSuccess(key, existed)
     case None => // nop
   }
 
-  def onFailure(e: AerospikeException): Unit = listener match {
+  override def onFailure(e: AerospikeException): Unit = listener match {
     case Some(l) => l.onFailure(e)
     case None => // nop
   }
+
+  override def cloneCommand(): AsyncCommand = new Delete(cluster, policy, listener, key)
 }
 

@@ -1,8 +1,11 @@
 package aerospiker
 
-import cats.data.ReaderT
+import cats.MonadError
+import cats.data.Kleisli
 
 trait Functions {
-  def withClient[F[_], U](f: AerospikeClient => F[U]): Action[F, U] = ReaderT.function[F, AerospikeClient, U](f)
+  private type ME[F[_]] = MonadError[F, Throwable]
+  def pure[F[_]: ME, A](a: A): Action[F, A] = Kleisli.pure(a)
+  def lift[F[_]: ME, A](fa: F[A]): Action[F, A] = Kleisli.lift(fa)
 }
 

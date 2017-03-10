@@ -1,3 +1,3 @@
 package aerospiker
 
-case class Record[T](bins: Option[T], generation: Int, expiration: Int)
+final case class Record[T](bins: Option[T], generation: Int, expiration: Int)

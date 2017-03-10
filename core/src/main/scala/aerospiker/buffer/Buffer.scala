@@ -2,27 +2,29 @@ package aerospiker
 package buffer
 
 import java.io.UnsupportedEncodingException
+import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
 
 import aerospiker.msgpack.JsonUnpacker
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.command.{ ParticleType => PT }
 import io.circe.Json
+
 import scala.collection.mutable.ListBuffer
 
 object Buffer {
 
   def bytesToParticle(typ: Int, buf: Array[Byte]): Json = typ match {
-    case PT.NULL => Json.empty
-    case PT.STRING => Json.string(new String(buf, "UTF8").trim)
-    case PT.INTEGER if buf.length == 8 => Json.long(bytesToLong(buf))
-    case PT.INTEGER if buf.length == 0 => Json.long(0L)
-    case PT.INTEGER if buf.length == 4 => Json.int(bytesToLong(buf).toInt)
-    case PT.INTEGER if buf.length > 8 => Json.bigDecimal(bytesToBigDecimal(buf))
-    case PT.DOUBLE => Json.numberOrNull(bytesToDouble(buf))
+    case PT.NULL => Json.Null
+    case PT.STRING => Json.fromString(new String(buf, "UTF8").trim)
+    case PT.INTEGER if buf.length == 8 => Json.fromLong(bytesToLong(buf))
+    case PT.INTEGER if buf.length == 0 => Json.fromLong(0L)
+    case PT.INTEGER if buf.length == 4 => Json.fromInt(bytesToLong(buf).toInt)
+    case PT.INTEGER if buf.length > 8 => Json.fromBigDecimal(bytesToBigDecimal(buf))
+    case PT.DOUBLE => Json.fromDoubleOrNull(bytesToDouble(buf))
     // case PT.BLOB => ???
-    case PT.LIST => JsonUnpacker.unpackObjectList(buf)
-    case PT.MAP => JsonUnpacker.unpackObjectMap(buf)
+    case PT.LIST => JsonUnpacker(ByteBuffer.wrap(buf)).unpack
+    case PT.MAP => JsonUnpacker(ByteBuffer.wrap(buf)).unpack
     case _ => throw new AerospikeException(s"Unsupported particle type[$typ]") // TODO: error message
   }
 

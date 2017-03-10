@@ -1,20 +1,16 @@
 package aerospiker
 package command
 
-// TODO: hate!
-
-import aerospiker.Record
-import aerospiker.buffer.{ Buffer, Header }
+import aerospiker.buffer.Buffer
 import aerospiker.listener.RecordSequenceListener
-import aerospiker.policy.{ Policy, ScanPolicy }
-import cats.data.Xor._
+import aerospiker.policy.ScanPolicy
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.AerospikeException.Parse
 import com.aerospike.client.async.{ AsyncNode, AsyncCluster, AsyncMultiExecutor, AsyncMultiCommand }
 import io.circe._
 import scala.collection.mutable.ListBuffer
 
-final class Scan[T](
+final class Scan[T: Decoder](
     parent: AsyncMultiExecutor,
     cluster: AsyncCluster,
     node: AsyncNode,
@@ -24,18 +20,13 @@ final class Scan[T](
     setName: String,
     binNames: Array[String],
     taskId: Long
-)(
-    implicit
-    decoder: Decoder[T]
-) extends AsyncMultiCommand(parent, cluster, node, true) {
-
-  def getPolicy: Policy = policy
+) extends AsyncMultiCommand(parent, cluster, node, policy, true) {
 
   @throws(classOf[AerospikeException])
-  def writeBuffer(): Unit = setScan(policy, namespace, setName, binNames, taskId)
+  override def writeBuffer(): Unit = setScan(policy, namespace, setName, binNames, taskId)
 
   @throws(classOf[AerospikeException])
-  def parseRow(key: Key): Unit = {
+  override def parseRow(key: Key): Unit = {
     val record: Option[Record[T]] = parseRecord0()
     listener match {
       case Some(l) => l.onRecord(key, record)
@@ -44,7 +35,7 @@ final class Scan[T](
   }
 
   @throws(classOf[AerospikeException])
-  def parseRecord0(): Option[Record[T]] = {
+  private[this] def parseRecord0(): Option[Record[T]] = {
     val bins: ListBuffer[(String, Json)] = ListBuffer.empty
     for (i <- 0 until opCount) {
       val opSize: Int = Buffer.bytesToInt(receiveBuffer.slice(receiveOffset, receiveOffset + 4))
@@ -63,7 +54,6 @@ final class Scan[T](
       case Left(e) => throw new Parse(e.getMessage)
       case Right(t) => Some(Record[T](Some(t), generation, expiration))
     }
-
   }
 }
 

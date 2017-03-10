@@ -3,29 +3,25 @@ package command
 
 import java.nio.ByteBuffer
 
-import aerospiker.Record
 import com.aerospike.client.{ AerospikeException, ResultCode }
-import com.aerospike.client.async.{ AsyncCluster, AsyncNode, AsyncSingleCommand }
-import com.aerospike.client.cluster.Partition
+import com.aerospike.client.async.{ AsyncCluster, AsyncCommand, AsyncSingleCommand }
+import com.aerospike.client.cluster.{ Node, Partition }
 import com.aerospike.client.policy.Policy
 import io.circe.Decoder
-
 import listener.RecordListener
 
-final class ReadHeader[T](cluster: AsyncCluster, policy: Policy, listener: Option[RecordListener[T]], key: Key)(implicit decoder: Decoder[T]) extends AsyncSingleCommand(cluster) {
+final class ReadHeader[T: Decoder](cluster: AsyncCluster, policy: Policy, listener: Option[RecordListener[T]], key: Key) extends AsyncSingleCommand(cluster, policy) {
 
   var record: Option[Record[T]] = None
 
   val partition = new Partition(key)
 
-  def getPolicy: Policy = policy
+  override def writeBuffer(): Unit = setReadHeader(policy, key)
 
-  def writeBuffer(): Unit = setReadHeader(policy, key)
+  override def getNode: Node =
+    cluster.getReadNode(partition, policy.replica)
 
-  def getNode: AsyncNode =
-    cluster.getReadNode(partition, policy.replica).asInstanceOf[AsyncNode]
-
-  def parseResult(byteBuffer: ByteBuffer): Unit = {
+  override def parseResult(byteBuffer: ByteBuffer): Unit = {
     val resultCode: Int = byteBuffer.get(5) & 0xFF
     if (resultCode == 0) {
       val generation: Int = byteBuffer.getInt(6)
@@ -38,13 +34,15 @@ final class ReadHeader[T](cluster: AsyncCluster, policy: Policy, listener: Optio
     }
   }
 
-  def onSuccess(): Unit = listener match {
+  override def onSuccess(): Unit = listener match {
     case Some(l) => l.onSuccess(key, record)
     case None => // nop
   }
 
-  def onFailure(e: AerospikeException): Unit = listener match {
+  override def onFailure(e: AerospikeException): Unit = listener match {
     case Some(l) => l.onFailure(e)
     case None => // nop
   }
+
+  override def cloneCommand(): AsyncCommand = new ReadHeader[T](cluster, policy, listener, key)
 }
