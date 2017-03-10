@@ -5,48 +5,39 @@ import java.nio.ByteBuffer
 
 import aerospiker.buffer.{ Buffer, Header }
 import aerospiker.listener.WriteListener
+import aerospiker.msgpack.JsonPacker
+import aerospiker.policy.{ Policy, WritePolicy }
+import com.aerospike.client.async.{ AsyncCluster, AsyncCommand, AsyncSingleCommand }
+import com.aerospike.client.cluster.{ Node, Partition }
+import com.aerospike.client.command.{ FieldType, ParticleType, Command => C }
 import com.aerospike.client.policy._
 import com.aerospike.client.{ AerospikeException, Operation }
-import com.aerospike.client.async.{ AsyncSingleCommand, AsyncCluster, AsyncNode }
-import com.aerospike.client.cluster.Partition
-import com.aerospike.client.command.{ Command => C, ParticleType, FieldType }
-import aerospiker.policy.{ Policy, WritePolicy }
-
-import aerospiker.msgpack.JsonPacker
 import io.circe._
 import io.circe.syntax._
 
 import scala.collection.mutable.ListBuffer
 
-// TODO: improve implement
-
-final class Write[T](
+final class Write[T: Encoder](
     cluster: AsyncCluster,
     policy: WritePolicy,
     listener: Option[WriteListener],
     key: Key,
     bins: T,
     operation: Operation.Type
-)(
-    implicit
-    encoder: Encoder[T]
-) extends AsyncSingleCommand(cluster) {
+) extends AsyncSingleCommand(cluster, policy) {
 
   val partition = new Partition(key)
 
   def getPolicy: Policy = policy
 
   def writeBuffer(): Unit = {
-    val start = System.currentTimeMillis()
     val buffer = setWrite(policy, operation, key, bins)
-    val end = System.currentTimeMillis()
-
     sizeBuffer()
     System.arraycopy(buffer, 0, dataBuffer, 0, buffer.length)
     dataOffset = buffer.length
   }
 
-  def getNode: AsyncNode = cluster.getMasterNode(partition).asInstanceOf[AsyncNode]
+  def getNode: Node = cluster.getMasterNode(partition)
 
   def parseResult(byteBuffer: ByteBuffer): Unit = {
     val resultCode: Int = byteBuffer.get(5) & 0xFF
@@ -72,9 +63,9 @@ final class Write[T](
     val jsonObjs = json.asObject.getOrElse(JsonObject.empty).toList
 
     val fields = Seq(
-      writeField(key.namespace, FieldType.NAMESPACE, 0, true),
-      writeField(key.setName, FieldType.TABLE, 0, true),
-      writeField(key.digest, FieldType.DIGEST_RIPE, 0, true),
+      writeField(key.namespace, FieldType.NAMESPACE, 0, java.lang.Boolean.TRUE),
+      writeField(key.setName, FieldType.TABLE, 0, java.lang.Boolean.TRUE),
+      writeField(key.digest, FieldType.DIGEST_RIPE, 0, java.lang.Boolean.TRUE),
       writeField(key.userKey.toString, FieldType.KEY, 1, policy.sendKey)
     ) collect { case Some(a) => a }
 
@@ -87,7 +78,7 @@ final class Write[T](
     // Write key into buffer.
     byteBuffer ++= fields.flatten
 
-    val values = jsonObjs.foreach {
+    jsonObjs.foreach {
       case (k: String, v: Json) =>
         val (nameBytes, nameLength) = Buffer.stringToUtf8(k)
         val (valueBytes, valueLength, particleType) = writeValue(v) // bin.value.write(byteBuffer, dataOffset + OPERATION_HEADER_SIZE + nameLength)
@@ -170,13 +161,21 @@ final class Write[T](
       Some(b)
     }
 
+  private[this] val packer = JsonPacker()
+
   @throws(classOf[AerospikeException])
   private def writeValue(value: Json): (Array[Byte], Int, Int) = value match {
     case js if js.isObject =>
-      val bytes = JsonPacker.pack(value)
+      val bytes = packer.pack(value) match {
+        case Left(e) => throw e
+        case Right(arr) => arr
+      }
       (bytes, bytes.length, ParticleType.MAP)
     case js if js.isArray =>
-      val bytes = JsonPacker.pack(value)
+      val bytes = packer.pack(value) match {
+        case Left(e) => throw e
+        case Right(arr) => arr
+      }
       (bytes, bytes.length, ParticleType.LIST)
     case js if js.isString =>
       val (bytes, len) = Buffer.stringToUtf8(js.asString.getOrElse(""))
@@ -184,23 +183,24 @@ final class Write[T](
     case js if js.isNumber => js.asNumber match {
       case None => throw new AerospikeException("number parse error")
       case Some(jo) => jo.toBigDecimal match {
-        case d if d.isWhole() =>
+        case None => throw new AerospikeException("number parse error")
+        case Some(d) if JsonPacker.double(d) =>
+          val bytes = doubleToBytes(d.doubleValue())
+          (bytes, bytes.length, ParticleType.DOUBLE)
+        case Some(d) =>
           val bytes = Buffer.longToBytes(d.longValue())
           (bytes.toArray, bytes.length, ParticleType.INTEGER)
-        case d =>
-          val bytes = doubleToBytes(d.doubleValue())
-          (bytes.toArray, bytes.length, ParticleType.DOUBLE)
       }
     }
     case js if js.isNull => (Array.empty, 0, ParticleType.NULL)
-    case js if js.isBoolean => js.asBoolean.getOrElse(false) match {
-      case true => (Buffer.longToBytes(1L).toArray, 8, ParticleType.INTEGER)
-      case false => (Buffer.longToBytes(0L).toArray, 8, ParticleType.INTEGER)
-    }
-    case _ => throw new AerospikeException(s"Unsuported object [${value.pretty(Printer.noSpaces)}]")
+    case js if js.isBoolean =>
+      if (js.asBoolean.getOrElse(false)) (Buffer.longToBytes(1L).toArray, 8, ParticleType.INTEGER)
+      else (Buffer.longToBytes(0L).toArray, 8, ParticleType.INTEGER)
+    case _ => throw new AerospikeException(s"Unsupported object [${value.pretty(Printer.noSpaces)}]")
   }
 
-  def doubleToBytes(v: Double): Array[Byte] = {
+  def doubleToBytes(v: Double): Array[Byte] =
     Buffer.longToBytes(java.lang.Double.doubleToLongBits(v)).toArray
-  }
+
+  override def cloneCommand(): AsyncCommand = new Write[T](cluster, policy, listener, key, bins, operation)
 }

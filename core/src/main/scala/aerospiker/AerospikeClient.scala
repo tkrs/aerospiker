@@ -6,5 +6,5 @@ import com.aerospike.client.async.AsyncCluster
 final case class AerospikeClient(policy: ClientPolicy, hosts: Host*) {
   implicit val cluster = new AsyncCluster(policy, hosts.toArray)
   cluster.initTendThread(policy.failIfNotConnected)
-  def close() = cluster.close()
+  def close(): Unit = cluster.close()
 }

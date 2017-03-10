@@ -2,46 +2,49 @@ package aerospiker
 package command
 
 import java.nio.ByteBuffer
-import com.aerospike.client.{ AerospikeException, ResultCode }
-import com.aerospike.client.async.{ AsyncCluster, AsyncNode, AsyncSingleCommand }
-import com.aerospike.client.cluster.Partition
-import com.aerospike.client.policy.Policy
 
+import aerospiker.policy.Policy
+import com.aerospike.client.{ AerospikeException, ResultCode }
+import com.aerospike.client.async.{ AsyncCluster, AsyncCommand, AsyncSingleCommand }
+import com.aerospike.client.cluster.{ Node, Partition }
 import listener.ExistsListener
 
-final class Exists(cluster: AsyncCluster, policy: Policy, listener: Option[ExistsListener], key: Key) extends AsyncSingleCommand(cluster) {
+final class Exists(
+    cluster: AsyncCluster,
+    policy: Policy,
+    listener: Option[ExistsListener],
+    key: Key
+) extends AsyncSingleCommand(cluster, policy) {
 
-  private val partition: Partition = new Partition(key)
+  private[this] val partition: Partition = new Partition(key)
 
-  private var exists = false
+  private[this] var exists = false
 
-  def getPolicy: Policy = policy
+  override def writeBuffer(): Unit = setExists(policy, key)
 
-  def writeBuffer(): Unit = setExists(policy, key)
+  override def getNode: Node =
+    cluster.getReadNode(partition, policy.replica)
 
-  def getNode: AsyncNode = {
-    cluster.getReadNode(partition, policy.replica).asInstanceOf[AsyncNode]
-  }
-
-  def parseResult(byteBuffer: ByteBuffer): Unit = {
+  override def parseResult(byteBuffer: ByteBuffer): Unit = {
     val resultCode: Int = byteBuffer.get(5) & 0xFF
-    if (resultCode == 0)
-      exists = true
+    if (resultCode == 0) exists = true
     else if (resultCode == ResultCode.KEY_NOT_FOUND_ERROR) exists = false
     else throw new AerospikeException(resultCode)
   }
 
-  def onSuccess(): Unit = {
+  override def onSuccess(): Unit = {
     listener match {
       case Some(l) => l.onSuccess(key, exists)
       case None => // nop
     }
   }
 
-  def onFailure(e: AerospikeException): Unit = {
+  override def onFailure(e: AerospikeException): Unit = {
     listener match {
       case Some(l) => l.onFailure(e)
       case None => // nop
     }
   }
+
+  override def cloneCommand(): AsyncCommand = new Exists(cluster, policy, listener, key)
 }

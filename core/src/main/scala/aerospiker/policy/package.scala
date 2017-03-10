@@ -28,7 +28,8 @@ package object policy {
       p.user = user
       p.password = password
       p.timeout = timeout
-      p.maxThreads = maxThreads
+      // TODO: lost maxThreads
+      // p.maxThreads = maxThreads
       p.maxSocketIdle = maxSocketIdle
       p.tendInterval = tendInterval
       p.failIfNotConnected = failIfNotConnected

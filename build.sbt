@@ -4,30 +4,37 @@ lazy val root = project.in(file("."))
   .aggregate(core, task, msgpack, tests)
   .dependsOn(core, task, msgpack)
 
-lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings
-
-lazy val buildSettings = Seq(
-  organization := "com.github.tkrs",
-  scalaVersion := "2.11.7"
+lazy val allSettings = Seq.concat(
+  buildSettings,
+  baseSettings,
+  publishSettings,
+  scalariformSettings
 )
 
-val aerospikeVersion = "3.1.6"
-val circeVersion = "0.2.0"
-val scalazVersion = "7.1.3"
-// val scalacheckVersion = "1.12.3"
-val scalatestVersion = "2.2.5"
-val catsVersion = "0.2.0"
+lazy val buildSettings = Seq(
+  name := "aerospiker",
+  organization := "com.github.tkrs",
+  scalaVersion := "2.12.1",
+  crossScalaVersions := Seq("2.11.8", "2.12.1")
+)
+
+val aerospikeVersion = "3.3.2"
+val circeVersion = "0.7.0"
+val monixVersion = "2.2.3"
+val scalacheckVersion = "1.13.4"
+val scalatestVersion = "3.0.1"
+val catsVersion = "0.9.0"
 
 lazy val baseSettings = Seq(
   scalacOptions ++= compilerOptions,
-  scalacOptions in (Compile, console) := compilerOptions,
-  scalacOptions in (Compile, test) := compilerOptions,
+  scalacOptions in (Compile, console) ~= (_ filterNot (_ == "-Ywarn-unused-import")),
   libraryDependencies ++= Seq(
     "com.aerospike" % "aerospike-client" % aerospikeVersion,
-    "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
+    "org.typelevel" %% "cats" % catsVersion,
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parse" % circeVersion
+    "io.circe" %% "circe-parser" % circeVersion,
+    "org.scala-lang.modules" %% "scala-java8-compat" % "0.8.0"
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -36,6 +43,7 @@ lazy val baseSettings = Seq(
 )
 
 lazy val publishSettings = Seq(
+  releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   homepage := Some(url("https://github.com/tkrs/aerospiker")),
   licenses := Seq("MIT License" -> url("http://www.opensource.org/licenses/mit-license.php")),
@@ -51,7 +59,7 @@ lazy val publishSettings = Seq(
   },
   scmInfo := Some(
     ScmInfo(
-      url("https://github.com/aerospiker"),
+      url("https://github.com/tkrs/aerospiker"),
       "scm:git:git@github.com:tkrs/aerospiker.git"
     )
   ),
@@ -67,8 +75,17 @@ lazy val publishSettings = Seq(
         <name>Shun Yanaura</name>
         <url>https://github.com/yanana</url>
       </developer>
-    </developers>
+    </developers>,
+  pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
+) ++ credentialSettings
+
+lazy val credentialSettings = Seq(
+  credentials ++= (for {
+    username <- Option(System.getenv().get("SONATYPE_USERNAME"))
+    password <- Option(System.getenv().get("SONATYPE_PASSWORD"))
+  } yield Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", username, password)).toSeq
 )
+
 
 lazy val noPublishSettings = Seq(
   publish := (),
@@ -94,7 +111,8 @@ lazy val task = project.in(file("task"))
   .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "org.spire-math" %% "cats" % catsVersion
+      "io.monix" %% "monix-eval" % monixVersion,
+      "io.monix" %% "monix-cats" % monixVersion
     )
   )
   .dependsOn(core)
@@ -107,19 +125,20 @@ lazy val msgpack = project.in(file("msgpack"))
   )
   .settings(allSettings: _*)
 
-lazy val example = project.in(file("example"))
+lazy val examples = project.in(file("examples"))
   .settings(
-    description := "aerospiker example",
-    moduleName := "aerospiker-example",
-    name := "example"
+    description := "aerospiker examples",
+    moduleName := "aerospiker-examples",
+    name := "examples",
+    crossScalaVersions := Seq("2.12.1")
   )
   .settings(allSettings: _*)
   .settings(noPublishSettings)
-  .settings(fork := true)
   .settings(
+    fork := true,
     libraryDependencies ++= Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
-      "org.slf4j" % "slf4j-simple" % "1.7.12"
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
+      "org.slf4j" % "slf4j-simple" % "1.7.24"
     )
   )
   .dependsOn(core, task, msgpack)
@@ -133,7 +152,9 @@ lazy val tests = project.in(file("test"))
   .settings(allSettings: _*)
   .settings(noPublishSettings)
   .settings(
+    fork := true,
     libraryDependencies ++= Seq(
+      "org.scalacheck" %% "scalacheck" % scalacheckVersion,
       "org.scalatest" %% "scalatest" % scalatestVersion
     )
   )
@@ -148,12 +169,11 @@ lazy val compilerOptions = Seq(
   "-language:higherKinds",
   "-language:implicitConversions",
   "-language:postfixOps",
+  "-unchecked",
+  "-Yno-adapted-args",
   "-Ywarn-dead-code",
+  "-Ywarn-unused-import",
   "-Ywarn-numeric-widen",
   "-Xfuture",
-  "-Yinline-warnings",
   "-Xlint"
 )
-
-scalariformSettings
-wartremoverErrors in (Compile, compile) ++= Warts.all

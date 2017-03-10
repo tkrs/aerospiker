@@ -3,14 +3,15 @@ package command
 
 import aerospiker.listener.ExecuteListener
 import aerospiker.msgpack.JsonPacker
-import com.aerospike.client.command.{ Buffer => B, Command => C, FieldType }
+import aerospiker.policy.{ Policy, WritePolicy }
+import com.aerospike.client.command.{ FieldType, Buffer => B, Command => C }
 import com.aerospike.client.AerospikeException
-import com.aerospike.client.async.{ AsyncCluster, AsyncNode }
-import com.aerospike.client.policy.WritePolicy
+import com.aerospike.client.async.AsyncCluster
+import com.aerospike.client.cluster.Node
 import io.circe._
 import io.circe.syntax._
 
-final class UdfExecute[A, R](
+final class UdfExecute[A: Encoder, R: Decoder](
     cluster: AsyncCluster,
     writePolicy: WritePolicy,
     listener: Option[ExecuteListener[R]],
@@ -18,22 +19,14 @@ final class UdfExecute[A, R](
     packageName: String,
     functionName: String,
     args: A
-)(
-    implicit
-    decoder: Decoder[R],
-    encoder: Encoder[A]
 ) extends Read[R](cluster, writePolicy, null, key, null) {
-
-  import policy.Policy
 
   @throws(classOf[AerospikeException])
   override def writeBuffer(): Unit = {
     setUdf(writePolicy, key, packageName, functionName, args)
   }
 
-  override def getNode: AsyncNode = {
-    cluster.getMasterNode(partition).asInstanceOf[AsyncNode]
-  }
+  override def getNode: Node = cluster.getMasterNode(partition)
 
   override def onSuccess(): Unit = {
     listener match {
@@ -42,19 +35,22 @@ final class UdfExecute[A, R](
     }
   }
 
-  override def onFailure(e: AerospikeException): Unit = {
-    listener match {
-      case None =>
-      case Some(l) => l.onFailure(e)
-    }
+  override def onFailure(e: AerospikeException): Unit = listener match {
+    case None =>
+    case Some(l) => l.onFailure(e)
   }
+
+  private[this] val packer = JsonPacker()
 
   @throws(classOf[AerospikeException])
   def setUdf(policy: WritePolicy, key: Key, packageName: String, functionName: String, args: A): Unit = {
     begin()
     var fieldCount: Int = estimateKeySize(policy, key)
     val doc = args.asJson
-    val argBytes: Array[Byte] = JsonPacker.pack(doc)
+    val argBytes: Array[Byte] = packer.pack(doc) match {
+      case Left(e) => throw e
+      case Right(arr) => arr
+    }
     fieldCount += estimateUdfSize(packageName, functionName, argBytes)
     sizeBuffer()
     writeHeader(policy, 0, C.INFO2_WRITE, fieldCount, 0)

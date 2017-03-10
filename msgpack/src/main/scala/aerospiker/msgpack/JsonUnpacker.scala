@@ -1,14 +1,14 @@
 package aerospiker.msgpack
 
-import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets.UTF_8
+
+import cats.syntax.either._
 import com.aerospike.client.AerospikeException
-import com.aerospike.client.command.Buffer
 import com.aerospike.client.command.ParticleType
+import io.circe.{ Decoder, DecodingFailure, Error, Json }
 
-import io.circe._
-import scala.collection.mutable.ListBuffer
-
-// TODO: Improve implementation
+import scala.annotation.tailrec
 
 /**
  * De-serialize collection objects using MessagePack format specification:
@@ -17,203 +17,138 @@ import scala.collection.mutable.ListBuffer
  */
 object JsonUnpacker {
 
-  @throws(classOf[AerospikeException])
-  def unpackObjectList(buffer: Array[Byte]): Json =
-    new JsonUnpacker(buffer, 0, buffer.length).unpackList
+  def apply(b: ByteBuffer) = new JsonUnpacker(b)
 
-  @throws(classOf[AerospikeException])
-  def unpackObjectMap(buffer: Array[Byte]): Json =
-    new JsonUnpacker(buffer, 0, buffer.length).unpackMap
+  def bytesToShort(buf: ByteBuffer, i: Int): Int =
+    bytesToUShort(buf, i)
+
+  def bytesToUShort(buf: ByteBuffer, i: Int): Int =
+    ((buf.get(i) & 0xFF) << 8) |
+      ((buf.get(i + 1) & 0xFF) << 0)
+
+  def bytesToInt(buf: ByteBuffer, i: Int): Int =
+    ((buf.get(i) & 0xFF) << 24) |
+      ((buf.get(i + 1) & 0xFF) << 16) |
+      ((buf.get(i + 2) & 0xFF) << 8) |
+      ((buf.get(i + 3) & 0xFF) << 0)
+
+  def bytesToUInt(buf: ByteBuffer, i: Int): Long =
+    ((buf.get(i) & 0xFF).toLong << 24) |
+      ((buf.get(i + 1) & 0xFF).toLong << 16) |
+      ((buf.get(i + 2) & 0xFF).toLong << 8) |
+      ((buf.get(i + 3) & 0xFF).toLong << 0)
+
+  def bytesToLong(buf: ByteBuffer, i: Int): Long =
+    ((buf.get(i) & 0xFF).toLong << 56) |
+      ((buf.get(i + 1) & 0xFF).toLong << 48) |
+      ((buf.get(i + 2) & 0xFF).toLong << 40) |
+      ((buf.get(i + 3) & 0xFF).toLong << 32) |
+      ((buf.get(i + 4) & 0xFF).toLong << 24) |
+      ((buf.get(i + 5) & 0xFF).toLong << 16) |
+      ((buf.get(i + 6) & 0xFF).toLong << 8) |
+      ((buf.get(i + 7) & 0xFF).toLong << 0)
+
+  def bytesToULong(buf: ByteBuffer, i: Int): BigInt =
+    (BigInt(buf.get(i) & 0xFF) << 56) |
+      (BigInt(buf.get(i + 1) & 0xFF) << 48) |
+      (BigInt(buf.get(i + 2) & 0xFF) << 40) |
+      (BigInt(buf.get(i + 3) & 0xFF) << 32) |
+      (BigInt(buf.get(i + 4) & 0xFF) << 24) |
+      (BigInt(buf.get(i + 5) & 0xFF) << 16) |
+      (BigInt(buf.get(i + 6) & 0xFF) << 8) |
+      (BigInt(buf.get(i + 7) & 0xFF) << 0)
+
+  def utf8ToString(buf: ByteBuffer, offset: Int, length: Int): String = {
+    val arr = Array.ofDim[Byte](length)
+    buf.position(offset)
+    buf.get(arr)
+    new String(arr, UTF_8)
+  }
 }
 
-class JsonUnpacker(buffer: Array[Byte], var offset: Int, length: Int) {
+final class JsonUnpacker(src: ByteBuffer) {
+  import JsonUnpacker._
 
-  @throws(classOf[AerospikeException])
-  final def unpackList: Json = {
-    if (length <= 0) Json.empty
-    else
-      try {
-        val typ: Int = buffer(offset) & 0xff
-        offset += 1
-        if ((typ & 0xf0) == 0x90) {
-          val count = typ & 0x0f
-          unpackList(count)
-        } else if (typ == 0xdc) {
-          val count = Buffer.bytesToShort(buffer, offset)
-          offset += 2
-          unpackList(count)
-        } else if (typ == 0xdd) {
-          val count = Buffer.bytesToInt(buffer, offset)
-          offset += 4
-          unpackList(count)
-        } else {
-          Json.empty
-        }
-      } catch {
-        case e: Exception => throw new AerospikeException.Serialize(e)
+  private[this] var offset = src.position
+
+  private[this] def readAt(i: Int): Int = {
+    val v = src.get(offset).toInt
+    offset += i
+    v
+  }
+
+  private[this] def decodeAt[A](i: Int, f: (ByteBuffer, Int) => A): A = {
+    val v = f(src, offset)
+    offset += i
+    v
+  }
+
+  def decode[A](implicit decoder: Decoder[A]): Either[Error, A] =
+    Either.catchOnly[AerospikeException](unpack)
+      .leftMap(e => DecodingFailure(e.getMessage, List.empty))
+      .flatMap(_.as[A])
+
+  def unpack: Json = readAt(1) & 0xff match {
+    case 0xc0 => Json.Null
+    case 0xc3 => Json.fromBoolean(true)
+    case 0xc2 => Json.fromBoolean(false)
+    case 0xca => Json.fromDoubleOrNull(java.lang.Float.intBitsToFloat(decodeAt(4, bytesToInt)).toDouble)
+    case 0xcb => Json.fromDoubleOrNull(java.lang.Double.longBitsToDouble(decodeAt(8, bytesToLong)))
+    case 0xd0 => Json.fromInt(readAt(1))
+    case 0xcc => Json.fromInt(readAt(1) & 0xff)
+    case 0xd1 => Json.fromInt(decodeAt(2, bytesToShort))
+    case 0xcd => Json.fromInt(decodeAt(2, bytesToUShort))
+    case 0xd2 => Json.fromInt(decodeAt(4, bytesToInt))
+    case 0xce => Json.fromLong(decodeAt(4, bytesToUInt))
+    case 0xd3 => Json.fromLong(decodeAt(8, bytesToLong))
+    case 0xcf => Json.fromBigInt(decodeAt(8, bytesToULong))
+    case 0xd9 => unpackBlob(readAt(1), readAt(1) & 0xff)
+    case 0xda => unpackBlob(readAt(1), decodeAt(2, bytesToShort))
+    case 0xdb => unpackBlob(readAt(1), decodeAt(4, bytesToInt))
+    case 0xdc => unpackList(decodeAt(2, bytesToShort))
+    case 0xdd => unpackList(decodeAt(4, bytesToInt))
+    case 0xde => unpackMap(decodeAt(2, bytesToShort))
+    case 0xdf => unpackMap(decodeAt(4, bytesToInt))
+    case t if (t & 0xe0) == 0xa0 => unpackBlob(readAt(1), t & 0x1f)
+    case t if (t & 0xf0) == 0x80 => unpackMap(t & 0x0f)
+    case t if (t & 0xf0) == 0x90 => unpackList(t & 0x0f)
+    case t if t < 0x80 => Json.fromLong(t.toLong)
+    case t if t >= 0xe0 => Json.fromLong((t - 0xe0 - 32).toLong)
+    case t => throw new AerospikeException.Serialize(new Exception("Unsupported type: 0x%02x".format(t)))
+  }
+
+  private[this] def unpackList(limit: Int): Json = {
+    @tailrec def loop(i: Int, acc: Array[Json]): Array[Json] =
+      if (i == limit) acc else {
+        acc(i) = unpack
+        loop(i + 1, acc)
       }
+    Json.fromValues(loop(0, Array.ofDim[Json](limit)))
   }
 
-  @throws(classOf[IOException])
-  @throws(classOf[ClassNotFoundException])
-  private def unpackList(count: Int): Json = {
-    import scala.collection.mutable.ListBuffer
-    val out: ListBuffer[Json] = ListBuffer.empty
-    var i: Int = 0
-    while (i < count) {
-      out += unpackObject
-      i += 1
+  private[this] def unpackMap(size: Int): Json = {
+    val key: Json => String = _.asString match {
+      case Some(s) => s
+      case None => throw new AerospikeException.Serialize(new Exception(s"Failed to decode key by the offset: $offset"))
     }
-    Json.fromValues(out.toSeq)
+    def loop(i: Int, acc: Seq[(String, Json)]): Seq[(String, Json)] =
+      if (i == 0) acc else loop(i - 1, acc :+ (key(unpack) -> unpack))
+    Json.fromFields(loop(size, Seq.empty))
   }
 
-  @throws(classOf[AerospikeException])
-  final def unpackMap: Json = {
-    if (length <= 0) Json.empty
-    else
-      try {
-        val typ: Int = buffer(offset) & 0xff
-        offset += 1
-        if ((typ & 0xf0) == 0x80) {
-          val count = typ & 0x0f
-          unpackMap(count)
-        } else if (typ == 0xde) {
-          val count = Buffer.bytesToShort(buffer, offset)
-          offset += 2
-          unpackMap(count)
-        } else if (typ == 0xdf) {
-          val count = Buffer.bytesToInt(buffer, offset)
-          offset += 4
-          unpackMap(count)
-        } else {
-          Json.empty
-        }
-      } catch {
-        case e: Exception =>
-          throw new AerospikeException.Serialize(e)
-      }
+  private[this] def unpackBlob(typ: Int, size: Int): Json = typ match {
+    case ParticleType.STRING => unpackString(size)
+    case ParticleType.JBLOB => throw new AerospikeException("Not support JBLOB in Aerospiker")
+    // val bastream: ByteArrayInputStream = new ByteArrayInputStream(buffer, offset, c)
+    // val oistream: ObjectInputStream = new ObjectInputStream(bastream)
+    // val v = oistream.readObject
+    // offset += c
+    case _ => throw new AerospikeException("Not support other type in Aerospiker")
+    // val v = Arrays.copyOfRange(buffer, offset, offset + c)
+    // offset += c
+    // (v)
   }
 
-  @throws(classOf[IOException])
-  @throws(classOf[ClassNotFoundException])
-  private def unpackMap(count: Int): Json = {
-    val out: ListBuffer[(String, Json)] = ListBuffer.empty
-    for (i <- 0 until count) {
-      {
-        val o = unpackObject
-        val k = o.asString match {
-          case Some(s) => s
-          case None => throw new AerospikeException(s"key: ${o.pretty(Printer.noSpaces)}") // TODO: exception message
-        }
-        val v = unpackObject
-        out += (k -> v)
-      }
-    }
-    Json.fromFields(out)
-  }
-
-  @throws(classOf[IOException])
-  @throws(classOf[ClassNotFoundException])
-  private def unpackBlob(count: Int): Json = {
-    val typ: Int = buffer(offset) & 0xff
-    offset += 1
-    val c = count - 1
-    typ match {
-      case ParticleType.STRING =>
-        val v = Buffer.utf8ToString(buffer, offset, c)
-        offset += c
-        Json.string(v)
-      case ParticleType.JBLOB => throw new AerospikeException("Not support JBLOB in Aerospiker")
-      // val bastream: ByteArrayInputStream = new ByteArrayInputStream(buffer, offset, c)
-      // val oistream: ObjectInputStream = new ObjectInputStream(bastream)
-      // val v = oistream.readObject
-      // offset += c
-      case _ => throw new AerospikeException("Not support other type in Aerospiker")
-      // val v = Arrays.copyOfRange(buffer, offset, offset + c)
-      // offset += c
-      // (v)
-    }
-  }
-
-  @throws(classOf[IOException])
-  @throws(classOf[ClassNotFoundException])
-  def unpackObject: Json = {
-    val typ: Int = buffer({ offset += 1; offset - 1 }) & 0xff
-    typ match {
-      case 0xc0 => Json.empty // TODO: null is empty???
-      case 0xc3 => Json.bool(true)
-      case 0xc2 => Json.bool(false)
-      case 0xca =>
-        val v: Float = java.lang.Float.intBitsToFloat(Buffer.bytesToInt(buffer, offset))
-        offset += 4
-        Json.numberOrNull(v.toDouble)
-      case 0xcb =>
-        val v: Double = java.lang.Double.longBitsToDouble(Buffer.bytesToLong(buffer, offset))
-        offset += 8
-        Json.numberOrNull(v)
-      case 0xd0 =>
-        val v = buffer(offset).toLong
-        offset += 1
-        Json.long(v)
-      case 0xcc =>
-        val v = buffer(offset & 0xff).toLong
-        offset += 1
-        Json.long(v)
-      case 0xd1 =>
-        val v: Short = Buffer.bigSigned16ToShort(buffer, offset)
-        offset += 2
-        Json.long(v.toLong)
-      case 0xcd =>
-        val v: Int = Buffer.bytesToShort(buffer, offset)
-        offset += 2
-        Json.long(v.toLong)
-      case 0xd2 =>
-        val v: Int = Buffer.bytesToInt(buffer, offset)
-        offset += 4
-        Json.long(v.toLong)
-      case 0xce =>
-        val v: Long = Buffer.bigUnsigned32ToLong(buffer, offset)
-        offset += 4
-        Json.long(v)
-      case 0xd3 =>
-        val v: Long = Buffer.bytesToLong(buffer, offset)
-        offset += 8
-        Json.long(v)
-      case 0xcf =>
-        val v: Long = Buffer.bytesToLong(buffer, offset)
-        offset += 8
-        Json.long(v)
-      case 0xda =>
-        val count: Int = Buffer.bytesToShort(buffer, offset)
-        offset += 2
-        unpackBlob(count) // String only
-      case 0xdb =>
-        val count: Int = Buffer.bytesToInt(buffer, offset)
-        offset += 4
-        unpackBlob(count) // String only
-      case 0xdc =>
-        val count: Int = Buffer.bytesToShort(buffer, offset)
-        offset += 2
-        unpackList(count)
-      case 0xdd =>
-        val count: Int = Buffer.bytesToInt(buffer, offset)
-        offset += 4
-        unpackList(count)
-      case 0xde =>
-        val count: Int = Buffer.bytesToShort(buffer, offset)
-        offset += 2
-        unpackMap(count)
-      case 0xdf =>
-        val count: Int = Buffer.bytesToInt(buffer, offset)
-        offset += 4
-        unpackMap(count)
-      case _ =>
-        if ((typ & 0xe0) == 0xa0) unpackBlob(typ & 0x1f)
-        else if ((typ & 0xf0) == 0x80) unpackMap(typ & 0x0f)
-        else if ((typ & 0xf0) == 0x90) unpackList(typ & 0x0f)
-        else if (typ < 0x80) Json.long(typ.toLong)
-        else if (typ >= 0xe0) Json.long((typ - 0xe0 - 32).toLong)
-        else throw new IOException("Unknown unpack type: " + typ)
-    }
-  }
+  private[this] def unpackString(size: Int): Json =
+    Json.fromString(decodeAt(size, utf8ToString(_, _, size)))
 }
