@@ -4,18 +4,19 @@ package command
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
 
-import aerospiker.buffer.Buffer
+import aerospiker.protocol.Buffer
 import aerospiker.listener.RecordListener
 import aerospiker.policy.Policy
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.AerospikeException.Parse
 import com.aerospike.client.ResultCode._
-import com.aerospike.client.async.{ AsyncCluster, AsyncCommand }
+import com.aerospike.client.async.{ AsyncCluster, AsyncCommand, AsyncSingleCommand }
 import com.aerospike.client.cluster.{ Node, Partition }
 import com.aerospike.client.command.Command
 import com.aerospike.client.util.ThreadLocalData
-import io.circe._
+import io.circe.{ Decoder, Json }
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 class Read[T: Decoder](
@@ -24,7 +25,7 @@ class Read[T: Decoder](
     listener: Option[RecordListener[T]],
     key: Key,
     binNames: String*
-) extends com.aerospike.client.async.AsyncSingleCommand(cluster, policy) {
+) extends AsyncSingleCommand(cluster, policy) {
 
   val partition = new Partition(key)
   var record: Option[Record[T]] = None
@@ -66,46 +67,36 @@ class Read[T: Decoder](
     }
   }
 
-  def parseRecord(opCount: Int, fieldCount: Int, generation: Int, expiration: Int): Record[T] = {
-    // There can be fields in the response (setname etc).
-    // But for now, ignore them. Expose them to the API if needed in the future.
-    if (fieldCount > 0) {
-      // Just skip over all the fields
-      for (i <- 0 until fieldCount) {
-        val fieldSize = Buffer.bytesToInt(dataBuffer.slice(dataOffset, dataOffset + 4))
-        dataOffset += 4 + fieldSize
-      }
-    }
-    val bins: ListBuffer[(String, Json)] = ListBuffer.empty
-    for (i <- 0 until opCount) {
-      val opSize = Buffer.bytesToInt(dataBuffer.slice(dataOffset, dataOffset + 4))
-      val particleType = dataBuffer(dataOffset + 5).toInt
-      val nameSize = dataBuffer(dataOffset + 7).toInt
-      // val name = Buffer.utf8ToString(dataBuffer, dataOffset + 8, nameSize)
-      val name = new String(dataBuffer.slice(dataOffset + 8, dataOffset + 8 + nameSize), UTF_8)
-      dataOffset += 4 + 4 + nameSize
-      val particleBytesSize = opSize - (4 + nameSize)
-      val result = Buffer.bytesToParticle(particleType, dataBuffer.slice(dataOffset, dataOffset + particleBytesSize))
-      bins += (name -> result)
-      dataOffset += particleBytesSize
-    }
-    val doc = Json.obj(bins: _*)
-    doc.as[T] match {
-      case Left(e) => throw new Parse(e.getMessage())
-      case Right(v) => Record(Some(v), generation, expiration)
+  private[this] def parseRecord(opCount: Int, fieldCount: Int, generation: Int, expiration: Int): Record[T] = {
+    for (_ <- 0 until fieldCount) {
+      val fieldSize = Buffer.bytesToInt(dataBuffer.slice(dataOffset, dataOffset + 4))
+      dataOffset += 4 + fieldSize
     }
 
+    @tailrec def go(i: Int, acc: ListBuffer[(String, Json)]): Record[T] = i match {
+      case 0 =>
+        Json.obj(acc: _*).as[T] match {
+          case Left(e) => throw new Parse(e.getMessage())
+          case Right(v) => Record(Some(v), generation, expiration)
+        }
+      case _ =>
+        val opSize = Buffer.bytesToInt(dataBuffer.slice(dataOffset, dataOffset + 4))
+        val particleType = dataBuffer(dataOffset + 5).toInt
+        val nameSize = dataBuffer(dataOffset + 7).toInt
+        val name = new String(dataBuffer.slice(dataOffset + 8, dataOffset + 8 + nameSize), UTF_8)
+        dataOffset += 4 + 4 + nameSize
+        val particleBytesSize = opSize - (4 + nameSize)
+        val result = Buffer.bytesToParticle(particleType, dataBuffer.slice(dataOffset, dataOffset + particleBytesSize))
+        acc += (name -> result)
+        dataOffset += particleBytesSize
+        go(i - 1, acc)
+    }
+    go(opCount, ListBuffer.empty)
   }
 
-  override def onSuccess(): Unit = listener match {
-    case Some(l) => l.onSuccess(key, record)
-    case None => // nop
-  }
+  override def onSuccess(): Unit = listener.foreach(_.onSuccess(key, record))
 
-  override def onFailure(e: AerospikeException): Unit = listener match {
-    case Some(l) => l.onFailure(e)
-    case None => // nop
-  }
+  override def onFailure(e: AerospikeException): Unit = listener.foreach(_.onFailure(e))
 
   override def cloneCommand(): AsyncCommand = new Read[T](cluster, policy, listener, key, binNames: _*)
 }

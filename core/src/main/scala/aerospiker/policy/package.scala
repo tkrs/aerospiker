@@ -6,12 +6,13 @@ package object policy {
 
   implicit val defaultClientPolicy: ClientPolicy = ClientPolicy()
 
+  type ClientPolicy = com.aerospike.client.async.AsyncClientPolicy
   object ClientPolicy {
     def apply(
       user: String = "",
       password: String = "",
       timeout: Int = 1000,
-      maxThreads: Int = 300,
+      maxConnsPerNode: Int = 300,
       maxSocketIdle: Int = 14,
       tendInterval: Int = 1000,
       failIfNotConnected: Boolean = true,
@@ -28,8 +29,7 @@ package object policy {
       p.user = user
       p.password = password
       p.timeout = timeout
-      // TODO: lost maxThreads
-      // p.maxThreads = maxThreads
+      p.maxConnsPerNode = maxConnsPerNode
       p.maxSocketIdle = maxSocketIdle
       p.tendInterval = tendInterval
       p.failIfNotConnected = failIfNotConnected
@@ -43,8 +43,8 @@ package object policy {
       p
     }
   }
-  type ClientPolicy = com.aerospike.client.async.AsyncClientPolicy
 
+  type Policy = com.aerospike.client.policy.Policy
   object Policy {
     def apply(
       priority: Priority = Priority.DEFAULT,
@@ -66,8 +66,8 @@ package object policy {
       p
     }
   }
-  type Policy = com.aerospike.client.policy.Policy
 
+  type WritePolicy = com.aerospike.client.policy.WritePolicy
   object WritePolicy {
     def apply(
       priority: Priority = Priority.DEFAULT,
@@ -99,8 +99,8 @@ package object policy {
       p
     }
   }
-  type WritePolicy = com.aerospike.client.policy.WritePolicy
 
+  type ScanPolicy = com.aerospike.client.policy.ScanPolicy
   object ScanPolicy {
     def apply(
       priority: Priority = Priority.DEFAULT,
@@ -132,8 +132,8 @@ package object policy {
       p
     }
   }
-  type ScanPolicy = com.aerospike.client.policy.ScanPolicy
 
+  type QueryPolicy = com.aerospike.client.policy.QueryPolicy
   object QueryPolicy {
     def apply(
       priority: Priority = Priority.DEFAULT,
@@ -159,8 +159,8 @@ package object policy {
       p
     }
   }
-  type QueryPolicy = com.aerospike.client.policy.QueryPolicy
 
+  type BatchPolicy = com.aerospike.client.policy.BatchPolicy
   object BatchPolicy {
     def apply(
       priority: Priority = Priority.DEFAULT,
@@ -188,8 +188,8 @@ package object policy {
       p
     }
   }
-  type BatchPolicy = com.aerospike.client.policy.BatchPolicy
 
+  type InfoPolicy = com.aerospike.client.policy.InfoPolicy
   object InfoPolicy {
     def apply(timeout: Int = 1000): InfoPolicy = {
       val p = new InfoPolicy()
@@ -197,5 +197,4 @@ package object policy {
       p
     }
   }
-  type InfoPolicy = com.aerospike.client.policy.InfoPolicy
 }

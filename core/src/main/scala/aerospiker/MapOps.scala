@@ -1,0 +1,4 @@
+package aerospiker
+
+object MapOps {
+}

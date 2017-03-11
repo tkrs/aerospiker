@@ -1,16 +1,15 @@
 package aerospiker
-package buffer
+package protocol
 
 import java.io.UnsupportedEncodingException
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
 
-import aerospiker.msgpack.JsonUnpacker
 import com.aerospike.client.AerospikeException
 import com.aerospike.client.command.{ ParticleType => PT }
 import io.circe.Json
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
 
 object Buffer {
 
@@ -53,39 +52,35 @@ object Buffer {
   def bytesToDouble(buf: Array[Byte]): Double =
     java.lang.Double.longBitsToDouble(bytesToLong(buf))
 
-  def longToBytes(v: Long): Seq[Byte] =
-    Seq(v >>> 56, v >>> 48, v >>> 40, v >>> 32, v >>> 24, v >>> 16, v >>> 8, v >>> 0).map(_.toByte)
+  def longToBytes(v: Long): Array[Byte] =
+    Array(v >>> 56 toByte, v >>> 48 toByte, v >>> 40 toByte, v >>> 32 toByte, v >>> 24 toByte, v >>> 16 toByte, v >>> 8 toByte, v >>> 0 toByte)
 
-  def intToBytes(v: Int): Seq[Byte] =
-    Seq(v >>> 24, v >>> 16, v >>> 8, v >>> 0).map(_.toByte)
+  def intToBytes(v: Int): Array[Byte] =
+    Array(v >>> 24 toByte, v >>> 16 toByte, v >>> 8 toByte, v >>> 0 toByte)
 
-  def shortToBytes(v: Short): Seq[Byte] =
-    Seq(v >>> 8, v >>> 0).map(_.toByte)
+  def shortToBytes(v: Short): Array[Byte] =
+    Array(v >>> 8 toByte, v >>> 0 toByte)
 
-  def stringToUtf8(s: String): (Array[Byte], Int) = {
-    if (s == null) (Array.empty, 0)
-    else {
-      val length = s.length
-      val buf: ListBuffer[Byte] = ListBuffer.empty
-      for (i <- 0 until length) {
-        val c = s.charAt(i)
-        if (c < 0x80) {
-          buf += c.toByte
-        } else if (c < 0x800) {
-          buf += (0xc0 | (c >> 6)).toByte
-          buf += (0x80 | (c & 0x3f)).toByte
-        } else {
-          // Encountered a different encoding other than 2-byte UTF8. Let java handle it.
-          try {
-            val value = s.getBytes(UTF_8)
-            return (value, value.length)
-          } catch {
-            case uee: UnsupportedEncodingException =>
-              throw new RuntimeException("UTF8 encoding is not supported.")
-          }
+  def stringToUtf8(s: String): Array[Byte] = if (s == null) Array.empty else {
+    val length = s.length
+    val builder: mutable.ArrayBuilder[Byte] = mutable.ArrayBuilder.make()
+    for (i <- 0 until length) {
+      val c = s.charAt(i)
+      if (c < 0x80) {
+        builder += c.toByte
+      } else if (c < 0x800) {
+        builder += (0xc0 | (c >> 6)).toByte
+        builder += (0x80 | (c & 0x3f)).toByte
+      } else {
+        // Encountered a different encoding other than 2-byte UTF8. Let java handle it.
+        try {
+          return s.getBytes(UTF_8)
+        } catch {
+          case uee: UnsupportedEncodingException =>
+            throw new RuntimeException("UTF8 encoding is not supported.", uee)
         }
       }
-      (buf.toArray, buf.length)
     }
+    builder.result()
   }
 }

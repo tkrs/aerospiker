@@ -27,17 +27,9 @@ final class Touch(
     if (resultCode != 0) throw new AerospikeException(resultCode)
   }
 
-  override def onSuccess(): Unit =
-    listener match {
-      case Some(l) => l.onSuccess(key)
-      case None => // nop
-    }
+  override def onSuccess(): Unit = listener.foreach(_.onSuccess(key))
 
-  override def onFailure(e: AerospikeException): Unit =
-    listener match {
-      case Some(l) => l.onFailure(e)
-      case None => // nop
-    }
+  override def onFailure(e: AerospikeException): Unit = listener.foreach(_.onFailure(e))
 
   override def cloneCommand(): AsyncCommand = new Touch(cluster, policy, listener, key)
 }

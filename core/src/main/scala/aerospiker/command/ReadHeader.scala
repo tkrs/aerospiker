@@ -34,15 +34,9 @@ final class ReadHeader[T: Decoder](cluster: AsyncCluster, policy: Policy, listen
     }
   }
 
-  override def onSuccess(): Unit = listener match {
-    case Some(l) => l.onSuccess(key, record)
-    case None => // nop
-  }
+  override def onSuccess(): Unit = listener.foreach(_.onSuccess(key, record))
 
-  override def onFailure(e: AerospikeException): Unit = listener match {
-    case Some(l) => l.onFailure(e)
-    case None => // nop
-  }
+  override def onFailure(e: AerospikeException): Unit = listener.foreach(_.onFailure(e))
 
   override def cloneCommand(): AsyncCommand = new ReadHeader[T](cluster, policy, listener, key)
 }

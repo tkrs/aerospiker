@@ -17,7 +17,6 @@ final class Exists(
 ) extends AsyncSingleCommand(cluster, policy) {
 
   private[this] val partition: Partition = new Partition(key)
-
   private[this] var exists = false
 
   override def writeBuffer(): Unit = setExists(policy, key)
@@ -32,19 +31,9 @@ final class Exists(
     else throw new AerospikeException(resultCode)
   }
 
-  override def onSuccess(): Unit = {
-    listener match {
-      case Some(l) => l.onSuccess(key, exists)
-      case None => // nop
-    }
-  }
+  override def onSuccess(): Unit = listener.foreach(_.onSuccess(key, exists))
 
-  override def onFailure(e: AerospikeException): Unit = {
-    listener match {
-      case Some(l) => l.onFailure(e)
-      case None => // nop
-    }
-  }
+  override def onFailure(e: AerospikeException): Unit = listener.foreach(_.onFailure(e))
 
   override def cloneCommand(): AsyncCommand = new Exists(cluster, policy, listener, key)
 }

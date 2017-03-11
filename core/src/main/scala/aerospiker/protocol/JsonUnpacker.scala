@@ -1,4 +1,5 @@
-package aerospiker.msgpack
+package aerospiker
+package protocol
 
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8

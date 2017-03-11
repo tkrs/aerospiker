@@ -1,8 +1,8 @@
 lazy val root = project.in(file("."))
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, task, msgpack, tests)
-  .dependsOn(core, task, msgpack)
+  .aggregate(core, task, tests)
+  .dependsOn(core, task)
 
 lazy val allSettings = Seq.concat(
   buildSettings,
@@ -39,7 +39,8 @@ lazy val baseSettings = Seq(
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
-  )
+  ),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
 )
 
 lazy val publishSettings = Seq(
@@ -100,7 +101,6 @@ lazy val core = project.in(file("core"))
     name := "core"
   )
   .settings(allSettings: _*)
-  .dependsOn(msgpack)
 
 lazy val task = project.in(file("task"))
   .settings(
@@ -116,14 +116,6 @@ lazy val task = project.in(file("task"))
     )
   )
   .dependsOn(core)
-
-lazy val msgpack = project.in(file("msgpack"))
-  .settings(
-    description := "aerospiker msgpack",
-    moduleName := "aerospiker-msgpack",
-    name := "msgpack"
-  )
-  .settings(allSettings: _*)
 
 lazy val examples = project.in(file("examples"))
   .settings(
@@ -141,7 +133,7 @@ lazy val examples = project.in(file("examples"))
       "org.slf4j" % "slf4j-simple" % "1.7.24"
     )
   )
-  .dependsOn(core, task, msgpack)
+  .dependsOn(core, task)
 
 lazy val tests = project.in(file("test"))
   .settings(
@@ -158,7 +150,7 @@ lazy val tests = project.in(file("test"))
       "org.scalatest" %% "scalatest" % scalatestVersion
     )
   )
-  .dependsOn(core, task, msgpack)
+  .dependsOn(core, task)
 
 lazy val compilerOptions = Seq(
   "-deprecation",

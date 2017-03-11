@@ -1,7 +1,7 @@
 package aerospiker
 package command
 
-import aerospiker.buffer.Buffer
+import aerospiker.protocol.Buffer
 import aerospiker.listener.RecordSequenceListener
 import aerospiker.policy.ScanPolicy
 import com.aerospike.client.AerospikeException
@@ -26,13 +26,8 @@ final class Scan[T: Decoder](
   override def writeBuffer(): Unit = setScan(policy, namespace, setName, binNames, taskId)
 
   @throws(classOf[AerospikeException])
-  override def parseRow(key: Key): Unit = {
-    val record: Option[Record[T]] = parseRecord0()
-    listener match {
-      case Some(l) => l.onRecord(key, record)
-      case None => // nop
-    }
-  }
+  override def parseRow(key: Key): Unit =
+    listener.foreach(_.onRecord(key, parseRecord0()))
 
   @throws(classOf[AerospikeException])
   private[this] def parseRecord0(): Option[Record[T]] = {

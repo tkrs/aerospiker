@@ -1,5 +1,5 @@
 package aerospiker
-package msgpack
+package protocol
 
 import java.nio.CharBuffer
 import java.nio.charset.CharsetEncoder
@@ -179,22 +179,19 @@ final class JsonPacker {
 
   private[this] def go(json: Json, acc: mutable.ArrayBuilder[Byte]): Unit = json.fold[Unit](
     formatNil(acc),
-    x => formatBoolFamily(x, acc),
-    x => {
-      val n = x.toBigDecimal
-      n match {
-        case None => ()
-        case Some(v) if double(v) =>
-          formatFloatFamily(v.toDouble, acc)
-        case Some(v) if v.isValidLong =>
-          formatIntFamily(v.toLong, acc)
-        case Some(v) if v.signum == -1 =>
-          formatIntFamily(0x3d.toByte, v.toBigInt(), acc)
-        case Some(v) =>
-          formatIntFamily(0xcf.toByte, v.toBigInt(), acc)
-      }
+    formatBoolFamily(_, acc),
+    _.toBigDecimal match {
+      case None => ()
+      case Some(v) if double(v) =>
+        formatFloatFamily(v.toDouble, acc)
+      case Some(v) if v.isValidLong =>
+        formatIntFamily(v.toLong, acc)
+      case Some(v) if v.signum == -1 =>
+        formatIntFamily(0x3d.toByte, v.toBigInt(), acc)
+      case Some(v) =>
+        formatIntFamily(0xcf.toByte, v.toBigInt(), acc)
     },
-    x => formatStrFamily(x, acc),
+    formatStrFamily(_, acc),
     xs => {
       formatArrayFamilyHeader(xs.size, acc)
       xs.foreach(go(_, acc))

@@ -1,10 +1,9 @@
 package aerospiker
-package buffer
+package protocol
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
-case class Header(
+final case class Header(
     headerLength: Int = 0,
     readAttr: Int = 0,
     writeAttr: Int = 0,

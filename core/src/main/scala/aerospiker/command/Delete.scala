@@ -25,26 +25,15 @@ final class Delete(
 
   override def parseResult(byteBuffer: ByteBuffer): Unit = {
     val resultCode: Int = byteBuffer.get(5) & 0xFF
-    if (resultCode == 0) {
-      existed = true
-    } else {
-      if (resultCode == ResultCode.KEY_NOT_FOUND_ERROR) {
-        existed = false
-      } else {
-        throw new AerospikeException(resultCode)
-      }
-    }
+    existed =
+      if (resultCode == 0) true
+      else if (resultCode == ResultCode.KEY_NOT_FOUND_ERROR) false
+      else throw new AerospikeException(resultCode)
   }
 
-  override def onSuccess(): Unit = listener match {
-    case Some(l) => l.onSuccess(key, existed)
-    case None => // nop
-  }
+  override def onSuccess(): Unit = listener.foreach(_.onSuccess(key, existed))
 
-  override def onFailure(e: AerospikeException): Unit = listener match {
-    case Some(l) => l.onFailure(e)
-    case None => // nop
-  }
+  override def onFailure(e: AerospikeException): Unit = listener.foreach(_.onFailure(e))
 
   override def cloneCommand(): AsyncCommand = new Delete(cluster, policy, listener, key)
 }

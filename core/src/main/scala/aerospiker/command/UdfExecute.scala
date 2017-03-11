@@ -2,7 +2,6 @@ package aerospiker
 package command
 
 import aerospiker.listener.ExecuteListener
-import aerospiker.msgpack.JsonPacker
 import aerospiker.policy.{ Policy, WritePolicy }
 import com.aerospike.client.command.{ FieldType, Buffer => B, Command => C }
 import com.aerospike.client.AerospikeException
@@ -22,32 +21,19 @@ final class UdfExecute[A: Encoder, R: Decoder](
 ) extends Read[R](cluster, writePolicy, null, key, null) {
 
   @throws(classOf[AerospikeException])
-  override def writeBuffer(): Unit = {
-    setUdf(writePolicy, key, packageName, functionName, args)
-  }
+  override def writeBuffer(): Unit = setUdf(writePolicy, key, packageName, functionName, args)
 
   override def getNode: Node = cluster.getMasterNode(partition)
 
-  override def onSuccess(): Unit = {
-    listener match {
-      case None =>
-      case Some(l) => l.onSuccess(key, record)
-    }
-  }
+  override def onSuccess(): Unit = listener.foreach(_.onSuccess(key, record))
 
-  override def onFailure(e: AerospikeException): Unit = listener match {
-    case None =>
-    case Some(l) => l.onFailure(e)
-  }
-
-  private[this] val packer = JsonPacker()
+  override def onFailure(e: AerospikeException): Unit = listener.foreach(_.onFailure(e))
 
   @throws(classOf[AerospikeException])
   def setUdf(policy: WritePolicy, key: Key, packageName: String, functionName: String, args: A): Unit = {
     begin()
     var fieldCount: Int = estimateKeySize(policy, key)
-    val doc = args.asJson
-    val argBytes: Array[Byte] = packer.pack(doc) match {
+    val argBytes: Array[Byte] = packer.pack(args.asJson) match {
       case Left(e) => throw e
       case Right(arr) => arr
     }
@@ -62,16 +48,10 @@ final class UdfExecute[A: Encoder, R: Decoder](
   }
 
   private def writeKey(policy: Policy, key: Key): Unit = {
-    if (key.namespace != null) {
-      writeField(key.namespace, FieldType.NAMESPACE)
-    }
-    if (key.setName != null) {
-      writeField(key.setName, FieldType.TABLE)
-    }
+    if (key.namespace != null) writeField(key.namespace, FieldType.NAMESPACE)
+    if (key.setName != null) writeField(key.setName, FieldType.TABLE)
     writeField(key.digest, FieldType.DIGEST_RIPE)
-    if (policy.sendKey) {
-      writeField(key.userKey, FieldType.KEY)
-    }
+    if (policy.sendKey) writeField(key.userKey, FieldType.KEY)
   }
 
   private def estimateKeySize(policy: Policy, key: Key): Int = {
