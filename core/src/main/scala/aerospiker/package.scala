@@ -1,4 +1,3 @@
-import cats.MonadError
 import cats.data.Kleisli
 
 package object aerospiker {
