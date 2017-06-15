@@ -33,8 +33,8 @@ lazy val baseSettings = Seq(
     "org.typelevel" %% "cats" % catsVersion,
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parser" % circeVersion,
-    "org.scala-lang.modules" %% "scala-java8-compat" % "0.8.0"
+    "io.circe" %% "circe-parser" % circeVersion
+    // "org.scala-lang.modules" %% "scala-java8-compat" % "0.8.0"
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -94,47 +94,45 @@ lazy val noPublishSettings = Seq(
 )
 
 lazy val core = project.in(file("core"))
+  .settings(allSettings: _*)
   .settings(
     description := "aerospiker core",
     moduleName := "aerospiker-core",
-    name := "core"
+    name := "core",
+    libraryDependencies ++= testDeps
   )
-  .settings(allSettings: _*)
   .dependsOn(msgpack)
 
 lazy val task = project.in(file("task"))
+  .settings(allSettings: _*)
   .settings(
     description := "aerospiker task",
     moduleName := "aerospiker-task",
-    name := "task"
-  )
-  .settings(allSettings: _*)
-  .settings(
+    name := "task",
     libraryDependencies ++= Seq(
       "io.monix" %% "monix-eval" % monixVersion,
       "io.monix" %% "monix-cats" % monixVersion
-    )
+    ) ++ testDeps
   )
   .dependsOn(core)
 
 lazy val msgpack = project.in(file("msgpack"))
+  .settings(allSettings: _*)
   .settings(
     description := "aerospiker msgpack",
     moduleName := "aerospiker-msgpack",
-    name := "msgpack"
+    name := "msgpack",
+    libraryDependencies ++= testDeps
   )
-  .settings(allSettings: _*)
 
 lazy val examples = project.in(file("examples"))
+  .settings(allSettings: _*)
+  .settings(noPublishSettings)
   .settings(
     description := "aerospiker examples",
     moduleName := "aerospiker-examples",
     name := "examples",
-    crossScalaVersions := Seq("2.12.2")
-  )
-  .settings(allSettings: _*)
-  .settings(noPublishSettings)
-  .settings(
+    crossScalaVersions := Seq("2.12.2"),
     fork := true,
     libraryDependencies ++= Seq(
       "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
@@ -144,21 +142,21 @@ lazy val examples = project.in(file("examples"))
   .dependsOn(core, task, msgpack)
 
 lazy val tests = project.in(file("test"))
-  .settings(
-    description := "aerospiker test",
-    moduleName := "aerospiker-test",
-    name := "test"
-  )
   .settings(allSettings: _*)
   .settings(noPublishSettings)
   .settings(
+    description := "aerospiker test",
+    moduleName := "aerospiker-test",
+    name := "test",
     fork := true,
-    libraryDependencies ++= Seq(
-      "org.scalacheck" %% "scalacheck" % scalacheckVersion,
-      "org.scalatest" %% "scalatest" % scalatestVersion
-    )
+    libraryDependencies ++= testDeps
   )
   .dependsOn(core, task, msgpack)
+
+lazy val testDeps = Seq(
+  "org.scalacheck" %% "scalacheck" % scalacheckVersion,
+  "org.scalatest" %% "scalatest" % scalatestVersion
+).map(_ % "test")
 
 lazy val compilerOptions = Seq(
   "-deprecation",

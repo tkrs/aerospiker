@@ -1,6 +1,6 @@
 import aerospiker._
-import aerospiker.policy.{ ClientPolicy, WritePolicy }
-import aerospiker.task.Aerospike
+import aerospiker.policy.{ClientPolicy, WritePolicy}
+import aerospiker.task.monix.Aerospike
 import io.circe.generic.auto._
 import monix.cats._
 import monix.eval.Task
@@ -23,15 +23,15 @@ object Standard extends App {
 
   val settings = Settings("test", "account", "user")
 
-  import Aerospike._
+  val as = Aerospike()
 
   try {
     val action = for {
-      _ <- put(settings, u1)
-      get <- get[User](settings)
-      del <- delete(settings)
+      _ <- as.put(settings, u1)
+      get <- as.get[User](settings)
+      del <- as.delete(settings)
       // _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
-      all <- all[User](settings)
+      all <- as.all[Vector, User](settings)
       // dels <- deletes(settings, Seq(u1.name, u2.name, u3.name))
     } yield "Done"
 
@@ -43,13 +43,13 @@ object Standard extends App {
 
   try {
     val action1 = for {
-      put <- put(settings, u1)
-      get <- get[User](settings)
+      put <- as.put(settings, u1)
+      get <- as.get[User](settings)
     } yield get
 
     val action2 = for {
-      put <- put(settings, u2)
-      get <- get[User](settings)
+      put <- as.put(settings, u2)
+      get <- as.get[User](settings)
     } yield get
 
     val t1 = Task.fork(action1.run(client))
