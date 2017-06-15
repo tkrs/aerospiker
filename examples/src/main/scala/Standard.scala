@@ -31,7 +31,7 @@ object Standard extends App {
       get <- get[User](settings)
       del <- delete(settings)
       // _ <- puts(settings, Map(u1.name -> u1, u2.name -> u2, u3.name -> u3))
-      all <- all[User](settings)
+      all <- all[Vector, User](settings)
       // dels <- deletes(settings, Seq(u1.name, u2.name, u3.name))
     } yield "Done"
 

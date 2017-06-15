@@ -1,15 +1,13 @@
 package aerospiker
 package task
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
 import aerospiker.listener._
 import com.aerospike.client.AerospikeException
 import io.circe.{ Decoder, Encoder }
 import monix.eval.Task
 import monix.execution.Cancelable
 
-import scala.collection.JavaConverters._
+import scala.collection.generic.CanBuildFrom
 
 object Aerospike extends Functions {
 
@@ -73,16 +71,20 @@ object Aerospike extends Functions {
   //  def deletes(settings: Settings, keys: Seq[String]): Action[Task, Seq[String]] =
   //    keys.toList.traverse(k => delete(settings.copy(key = k)).map(_ => k))
 
-  def all[A](settings: Settings, binNames: String*)(implicit decoder: Decoder[A]): Action[Task, Seq[(Key, Option[Record[A]])]] =
-    Action[Task, Seq[(Key, Option[Record[A]])]] { c =>
-      Task.async[Seq[(Key, Option[Record[A]])]] { (s, cb) =>
+  def all[C[_], A](settings: Settings, binNames: String*)(
+    implicit
+    decoder: Decoder[A],
+    cbf: CanBuildFrom[Nothing, (Key, Option[Record[A]]), C[(Key, Option[Record[A]])]]
+  ): Action[Task, C[(Key, Option[Record[A]])]] =
+    Action[Task, C[(Key, Option[Record[A]])]] { c =>
+      Task.async[C[(Key, Option[Record[A]])]] { (s, cb) =>
         try {
-          val queue = new ConcurrentLinkedQueue[(Key, Option[Record[A]])]
+          val builder = cbf.apply()
           Command.all[A](c, settings, binNames,
             Some(new RecordSequenceListener[A] {
-              def onRecord(key: Key, record: Option[Record[A]]): Unit = queue.add(key -> record)
+              def onRecord(key: Key, record: Option[Record[A]]): Unit = builder += key -> record
               def onFailure(e: AerospikeException): Unit = cb.onError(e)
-              def onSuccess(): Unit = cb.onSuccess(queue.asScala.toSeq)
+              def onSuccess(): Unit = cb.onSuccess(builder.result())
             }))
         } catch {
           case e: Throwable => cb.onError(e)
