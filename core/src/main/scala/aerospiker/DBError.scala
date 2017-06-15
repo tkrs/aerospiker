@@ -1,6 +1,6 @@
 package aerospiker
 
-sealed abstract class DBError(cause: Throwable = null) extends Exception(cause) {
+sealed abstract class DBError(cause: Throwable) extends Exception(cause) {
   override def fillInStackTrace(): Throwable = cause.fillInStackTrace()
 }
 case class PutError(key: String, cause: Throwable = null) extends DBError(cause)
