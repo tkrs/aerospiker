@@ -2,7 +2,6 @@ package aerospiker
 package buffer
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
 case class Header(
     headerLength: Int = 0,
