@@ -14,8 +14,8 @@ lazy val allSettings = Seq.concat(
 lazy val buildSettings = Seq(
   name := "aerospiker",
   organization := "com.github.tkrs",
-  scalaVersion := "2.12.1",
-  crossScalaVersions := Seq("2.11.8", "2.12.1")
+  scalaVersion := "2.12.2",
+  crossScalaVersions := Seq("2.11.11", "2.12.2")
 )
 
 val aerospikeVersion = "3.3.2"
@@ -130,7 +130,7 @@ lazy val examples = project.in(file("examples"))
     description := "aerospiker examples",
     moduleName := "aerospiker-examples",
     name := "examples",
-    crossScalaVersions := Seq("2.12.1")
+    crossScalaVersions := Seq("2.12.2")
   )
   .settings(allSettings: _*)
   .settings(noPublishSettings)

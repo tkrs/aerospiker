@@ -4,13 +4,10 @@ package task
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import aerospiker.listener._
-import cats.instances.list._
-import cats.syntax.traverse._
 import com.aerospike.client.AerospikeException
 import io.circe.{ Decoder, Encoder }
 import monix.eval.Task
 import monix.execution.Cancelable
-import monix.cats._
 
 import scala.collection.JavaConverters._
 
